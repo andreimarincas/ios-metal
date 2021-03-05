@@ -49,6 +49,8 @@ static const Vertex kCubeVertexData[] =
     B,G,H, B,H,C    // Bottom
 };
 
+static const long kInFlightCommandBuffers = 3;
+
 @interface MetalRenderer ()
 {
     // The MTLDevice provides a direct way to communicate with the GPU driver and hardware
@@ -56,7 +58,6 @@ static const Vertex kCubeVertexData[] =
     
     // The MTLBuffer is a typeless allocation accessible by both the CPU and the GPU (MTLDevice)
     id <MTLBuffer>              _vertexBuffer;
-    id <MTLBuffer>              _uniformsBuffer;
     
     // Through MTLLibrary you can access any of the precompiled shaders included in your project
     id <MTLLibrary>             _library;
@@ -70,6 +71,13 @@ static const Vertex kCubeVertexData[] =
     // Globals used in update calculation
     float4x4                    _projectionMatrix;
     float                       _rotation;
+    
+    dispatch_semaphore_t        _inflight_semaphore;
+    id <MTLBuffer>              _dynamicUniformsBuffer[kInFlightCommandBuffers];
+    
+    // This value will cycle from 0 to kInFlightCommandBuffers-1 whenever a display completes ensuring renderer clients
+    // can synchronize between kInFlightCommandBuffers count buffers, and thus avoiding a constant buffer from being overwritten between draws.
+    NSUInteger                  _uniformsBufferIndex;
 }
 
 @end
@@ -83,6 +91,7 @@ static const Vertex kCubeVertexData[] =
     if (self)
     {
         _projectionMatrix = identity();
+        _inflight_semaphore = dispatch_semaphore_create(kInFlightCommandBuffers);
     }
     
     return self;
@@ -164,17 +173,27 @@ static const Vertex kCubeVertexData[] =
                                          length: sizeof(kCubeVertexData)
                                         options: MTLResourceOptionCPUCacheModeDefault];
     
-    _uniformsBuffer = [_device newBufferWithLength:sizeof(Uniforms) options:0];
+    // Allocate a number of buffers in memory that matches the sempahore count so that
+    // we always have one self contained memory buffer for each buffered frame.
+    // In this case triple buffering is the optimal way to go so we cycle through 3 memory buffers.
+    for (int i = 0; i < kInFlightCommandBuffers; i++)
+    {
+        _dynamicUniformsBuffer[i] = [_device newBufferWithLength:sizeof(Uniforms) options:0];
+        
+        // Write initial uniforms values
+        Uniforms& uniformsData = *(Uniforms *)[_dynamicUniformsBuffer[i] contents];
+        uniformsData.modelMatrix = identity();
+        uniformsData.projectionMatrix = identity();
+    }
 }
 
 - (void)updateUniformsBuffer
 {
-    Uniforms *uniforms = (Uniforms *)[_uniformsBuffer contents];
-    
     float4x4 baseModelMatrix = translation(0, 0, 3) * rotation(_rotation, 1, 1, 1);
     
-    uniforms->modelMatrix = baseModelMatrix;
-    uniforms->projectionMatrix = _projectionMatrix;
+    Uniforms& uniformsData = *(Uniforms *)[_dynamicUniformsBuffer[_uniformsBufferIndex] contents];
+    uniformsData.modelMatrix = baseModelMatrix;
+    uniformsData.projectionMatrix = _projectionMatrix;
 }
 
 #pragma mark - MetalViewDelegate (Render)
@@ -189,6 +208,10 @@ static const Vertex kCubeVertexData[] =
 
 - (void)drawInMetalView:(MetalView *)view
 {
+    // This semaphore will get signaled once the GPU completes a frame's work via addCompletedHandler callback below,
+    // signifying the CPU can go ahead and prepare another frame.
+    dispatch_semaphore_wait(_inflight_semaphore, DISPATCH_TIME_FOREVER);
+    
     // Prior to sending any data to the GPU, constant buffers should be updated accordingly on the CPU.
     [self updateUniformsBuffer];
     
@@ -216,7 +239,7 @@ static const Vertex kCubeVertexData[] =
         
         // Set buffers
         [renderEncoder setVertexBuffer:_vertexBuffer offset:0 atIndex:0];
-        [renderEncoder setVertexBuffer:_uniformsBuffer offset:0 atIndex:1];
+        [renderEncoder setVertexBuffer:_dynamicUniformsBuffer[_uniformsBufferIndex] offset:0 atIndex:1];
         
         // Tell the GPU to draw a set of triangles based on the vertex buffer.
         // Each triangle consists of 3 vertices, starting at index 0 inside the vertex buffer.
@@ -230,8 +253,24 @@ static const Vertex kCubeVertexData[] =
         [commandBuffer presentDrawable:view.currentDrawable]; // schedule a present once rendering to the framebuffer is complete
     }
     
+    // Call the view's completion handler which is required by the view since it will signal its semaphore and set up the next buffer
+    __block dispatch_semaphore_t inflight_semaphore = _inflight_semaphore;
+    
+    [commandBuffer addCompletedHandler:^(id <MTLCommandBuffer> buffer) {
+        
+        // GPU has completed rendering the frame and is done using the contents of any buffers previously encoded on the CPU for that frame.
+        // Signal the semaphore and allow the CPU to proceed and construct the next frame.
+        dispatch_semaphore_signal(inflight_semaphore);
+    }];
+    
     // Commit the transaction to send the task to the GPU. The commit method puts the command buffer into the queue.
     [commandBuffer commit]; // Finalize rendering here. This will push the command buffer to the GPU.
+    
+    // This index represents the current portion of the ring buffer being used for a given frame's uniforms buffer updates.
+    // Once the CPU has completed updating a shared CPU/GPU memory buffer region for a frame, this index should be updated so the
+    // next portion of the ring buffer can be written by the CPU. Note, this should only be done *after* all writes to any
+    // buffers requiring synchronization for a given frame is done in order to avoid writing a region of the ring buffer that the GPU may be reading.
+    _uniformsBufferIndex = (_uniformsBufferIndex + 1) % kInFlightCommandBuffers;
 }
 
 #pragma mark - MetalViewControllerDelegate (Update)
