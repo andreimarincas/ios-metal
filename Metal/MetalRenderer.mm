@@ -153,7 +153,7 @@ static const float vertex_data[] =
 - (void)updateTransformBuffer
 {
     TransformData *data = (TransformData *)[_transformBuffer contents];
-    float4x4 baseModelMatrix = rotation(_rotation, 0.0f, 0.0f, 1.0f);
+    float4x4 baseModelMatrix = rotation(_rotation, 0, 0, 1);
     float4x4 t = _projectionMatrix * _modelViewMatrix * baseModelMatrix;
     data->transform = t;
 }
@@ -168,14 +168,8 @@ static const float vertex_data[] =
     float h = view.bounds.size.height;
     float scale_xy  = fminf(w, h) / 2.0f;
     
-//    _modelViewMatrix = scale(scale_xy, scale_xy, 1.0f);
-//    _projectionMatrix = ortho2d_oc(-w / 2.0f, w / 2.0f, -h / 2.0f, h / 2.0f, 0.0f, 1.0f);
-    
-//    _modelViewMatrix = translation(w / 2.0f, h / 2.0f, 0.0f) * scale(scale_xy, scale_xy, 1.0f);
-//    _projectionMatrix = ortho2d_oc(0.0f, w, 0.0f, h, 0.0f, 1.0f);
-    
-    _modelViewMatrix = scale(scale_xy, scale_xy, 1.0f);
-    _projectionMatrix = ortho2d(0.0f, w, 0.0f, h, 0.0f, 1.0f);
+    _modelViewMatrix = scale(scale_xy, scale_xy, 1);
+    _projectionMatrix = ortho2d(0, w, 0, h, 0, 1);
 }
 
 - (void)drawInMetalView:(MetalView *)view
