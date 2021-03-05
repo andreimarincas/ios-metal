@@ -17,8 +17,7 @@ namespace MTL
 {
     struct Uniforms
     {
-        simd::float4x4 modelViewMatrix;
-        simd::float4x4 projectionMatrix;
+        simd::float4x4 modelview_projection_matrix;
     };
 }
 

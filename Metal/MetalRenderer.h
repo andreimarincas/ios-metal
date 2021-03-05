@@ -10,10 +10,13 @@
 #import <Metal/Metal.h>
 #import "MetalView.h"
 #import "MetalViewController.h"
+#import "Scene.h"
 
 static const long kInFlightCommandBuffers = 3;
 
 @interface MetalRenderer : NSObject <MetalViewDelegate, MetalViewControllerDelegate>
+
+@property (nonatomic, weak) Scene *scene;
 
 - (void)configure:(MetalView *)view;
 

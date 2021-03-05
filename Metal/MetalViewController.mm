@@ -1,5 +1,5 @@
 //
-//  MetalViewController.m
+//  MetalViewController.mm
 //  Metal
 //
 //  Created by Andrei Marincas on 3/1/16.
@@ -9,6 +9,12 @@
 #import "MetalViewController.h"
 #import "MetalView.h"
 #import "MetalRenderer.h"
+#import "Scene.h"
+#import "Cube.h"
+#import "Transforms.h"
+
+using namespace simd;
+using namespace MTL;
 
 @interface MetalViewController ()
 {
@@ -25,6 +31,8 @@
     BOOL                _renderLoopPaused;
     
     MetalRenderer       *_renderer;
+    
+    Scene               *_scene;
 }
 
 @end
@@ -106,6 +114,45 @@
     
     // Load all renderer assets before starting the render loop
     [_renderer configure:_metalView];
+    
+    // Create the main scene
+    id <MTLDevice> device = [_metalView device];
+    _scene = [[Scene alloc] initWithName:@"MainScene" device:device];
+    _renderer.scene = _scene;
+    
+    // Add node objects to the scene
+    Cube *cube = [[Cube alloc] initWithName:@"Cube" device:device];
+    cube.position.x += 5;
+//    cube.scale.z = 0.5;
+//    cube.scale = 0.5;
+//    cube1.position.xyz = float3(1.0f);
+//    cube1.scale = {2.0f, 1.5f, 1.0f};
+//    [cube1 rotateBy:30 aroundAxis:zAxis];
+//    [cube1 rotateBy:20 aroundAxis:yAxis];
+//    [cube1 rotateBy:40 aroundAxis:xAxis];
+    
+//    Cube *cube2 = [[Cube alloc] initWithName:@"Cube2" device:device];
+//    cube2.position = float3(-1.0f);
+//    cube2.scale = float3(0.5f);
+//    cube2.hidden = YES;
+    
+    Node *parent = [[Node alloc] initWithName:@"Parent" vertices:nil device:device];
+    parent.position.z = 3;
+//    parent.scale.x = 0.5;
+//    parent.scale.z = 0.75;
+//    parent.scale.z = 0.35;
+//    parent.position.x += 1;
+    Node *grandparent = [[Node alloc] initWithName:@"GrandParent" vertices:nil device:device];
+//    grandparent.position.z = 3;
+    [parent addChild:cube];
+    [grandparent addChild:parent];
+//    [_scene addChild:grandparent];
+    
+    [_scene addChild:grandparent];
+//    [_scene addChild:cube2];
+    
+//    _scene.position.xz += 1;
+//    _scene.scale = 2;
 }
 
 - (void)viewWillAppear:(BOOL)animated

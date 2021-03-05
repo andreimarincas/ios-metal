@@ -10,6 +10,7 @@
 		0195116D1CA589FC003B5534 /* Node.mm in Sources */ = {isa = PBXBuildFile; fileRef = 0195116C1CA589FC003B5534 /* Node.mm */; };
 		019511731CA92E29003B5534 /* Cube.mm in Sources */ = {isa = PBXBuildFile; fileRef = 019511721CA92E29003B5534 /* Cube.mm */; };
 		0195117D1CB3EBDE003B5534 /* Quaternion.mm in Sources */ = {isa = PBXBuildFile; fileRef = 0195117C1CB3EBDE003B5534 /* Quaternion.mm */; };
+		019511801CB79826003B5534 /* Scene.mm in Sources */ = {isa = PBXBuildFile; fileRef = 0195117F1CB79826003B5534 /* Scene.mm */; };
 		01A0DEAE1C9A989300A71306 /* main.m in Sources */ = {isa = PBXBuildFile; fileRef = 01A0DEAD1C9A989300A71306 /* main.m */; };
 		01A0DEB11C9A989300A71306 /* AppDelegate.m in Sources */ = {isa = PBXBuildFile; fileRef = 01A0DEB01C9A989300A71306 /* AppDelegate.m */; };
 		01A0DEB71C9A989400A71306 /* Main.storyboard in Resources */ = {isa = PBXBuildFile; fileRef = 01A0DEB51C9A989400A71306 /* Main.storyboard */; };
@@ -19,7 +20,7 @@
 		01A0DECA1C9A98F600A71306 /* Shaders.metal in Sources */ = {isa = PBXBuildFile; fileRef = 01A0DEC71C9A98F600A71306 /* Shaders.metal */; };
 		01A0DED11C9A994200A71306 /* MetalRenderer.mm in Sources */ = {isa = PBXBuildFile; fileRef = 01A0DECC1C9A994200A71306 /* MetalRenderer.mm */; };
 		01A0DED21C9A994200A71306 /* MetalView.m in Sources */ = {isa = PBXBuildFile; fileRef = 01A0DECE1C9A994200A71306 /* MetalView.m */; };
-		01A0DED31C9A994200A71306 /* MetalViewController.m in Sources */ = {isa = PBXBuildFile; fileRef = 01A0DED01C9A994200A71306 /* MetalViewController.m */; };
+		01A0DED31C9A994200A71306 /* MetalViewController.mm in Sources */ = {isa = PBXBuildFile; fileRef = 01A0DED01C9A994200A71306 /* MetalViewController.mm */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXFileReference section */
@@ -29,6 +30,8 @@
 		019511721CA92E29003B5534 /* Cube.mm */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.objcpp; path = Cube.mm; sourceTree = "<group>"; };
 		0195117B1CB3EBCF003B5534 /* Quaternion.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = Quaternion.h; sourceTree = "<group>"; };
 		0195117C1CB3EBDE003B5534 /* Quaternion.mm */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.objcpp; path = Quaternion.mm; sourceTree = "<group>"; };
+		0195117E1CB79826003B5534 /* Scene.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = Scene.h; sourceTree = "<group>"; };
+		0195117F1CB79826003B5534 /* Scene.mm */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.objcpp; path = Scene.mm; sourceTree = "<group>"; };
 		01A0DEA91C9A989300A71306 /* Metal.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = Metal.app; sourceTree = BUILT_PRODUCTS_DIR; };
 		01A0DEAD1C9A989300A71306 /* main.m */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.objc; path = main.m; sourceTree = "<group>"; };
 		01A0DEAF1C9A989300A71306 /* AppDelegate.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = AppDelegate.h; sourceTree = "<group>"; };
@@ -46,7 +49,7 @@
 		01A0DECD1C9A994200A71306 /* MetalView.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = MetalView.h; sourceTree = "<group>"; };
 		01A0DECE1C9A994200A71306 /* MetalView.m */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.objc; path = MetalView.m; sourceTree = "<group>"; };
 		01A0DECF1C9A994200A71306 /* MetalViewController.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = MetalViewController.h; sourceTree = "<group>"; };
-		01A0DED01C9A994200A71306 /* MetalViewController.m */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.objc; path = MetalViewController.m; sourceTree = "<group>"; };
+		01A0DED01C9A994200A71306 /* MetalViewController.mm */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.objcpp; path = MetalViewController.mm; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXFrameworksBuildPhase section */
@@ -86,11 +89,13 @@
 				01A0DECD1C9A994200A71306 /* MetalView.h */,
 				01A0DECE1C9A994200A71306 /* MetalView.m */,
 				01A0DECF1C9A994200A71306 /* MetalViewController.h */,
-				01A0DED01C9A994200A71306 /* MetalViewController.m */,
+				01A0DED01C9A994200A71306 /* MetalViewController.mm */,
 				0195116B1CA589FC003B5534 /* Node.h */,
 				0195116C1CA589FC003B5534 /* Node.mm */,
 				019511711CA92E29003B5534 /* Cube.h */,
 				019511721CA92E29003B5534 /* Cube.mm */,
+				0195117E1CB79826003B5534 /* Scene.h */,
+				0195117F1CB79826003B5534 /* Scene.mm */,
 				01A0DEC31C9A98F600A71306 /* Math */,
 				01A0DEC61C9A98F600A71306 /* Shaders */,
 				01A0DEB51C9A989400A71306 /* Main.storyboard */,
@@ -204,11 +209,12 @@
 				01A0DEC91C9A98F600A71306 /* Transforms.mm in Sources */,
 				01A0DEB11C9A989300A71306 /* AppDelegate.m in Sources */,
 				01A0DEAE1C9A989300A71306 /* main.m in Sources */,
+				019511801CB79826003B5534 /* Scene.mm in Sources */,
 				019511731CA92E29003B5534 /* Cube.mm in Sources */,
 				0195117D1CB3EBDE003B5534 /* Quaternion.mm in Sources */,
 				01A0DED21C9A994200A71306 /* MetalView.m in Sources */,
 				01A0DECA1C9A98F600A71306 /* Shaders.metal in Sources */,
-				01A0DED31C9A994200A71306 /* MetalViewController.m in Sources */,
+				01A0DED31C9A994200A71306 /* MetalViewController.mm in Sources */,
 				0195116D1CA589FC003B5534 /* Node.mm in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;

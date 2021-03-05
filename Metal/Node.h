@@ -10,6 +10,8 @@
 #import <Metal/Metal.h>
 #import <simd/simd.h>
 
+#import "Quaternion.h"
+
 struct Vertex
 {
     float x, y, z;      // position
@@ -40,7 +42,8 @@ static const simd::float3 zAxis = { 0.0f, 0.0f, 1.0f };
 @property (nonatomic, readonly) id <MTLBuffer> vertexBuffer;
 @property (nonatomic, readonly) NSUInteger vertexCount;
 
-@property (nonatomic, assign) simd::float3& position;
+@property (nonatomic, readonly) simd::float3& position;
+@property (nonatomic, readonly) simd::float3& scale;
 
 - (void)rotateBy:(float)angle aroundAxis:(const simd::float3&)axis;
 
@@ -50,11 +53,22 @@ static const simd::float3 zAxis = { 0.0f, 0.0f, 1.0f };
 - (id <MTLBuffer>)currentUniformBuffer;
 
 - (void)updateUniformBuffer:(NSUInteger)bufferIndex
-                 viewMatrix:(const simd::float4x4&)viewMatrix
-           projectionMatrix:(const simd::float4x4&)projMatrix;
+       viewProjectionMatrix:(const simd::float4x4&)viewProjMatrix;
+
+- (void)updateUniformBuffer:(NSUInteger)bufferIndex
+          parentModelMatrix:(const simd::float4x4&)pModelMatrix
+       viewProjectionMatrix:(const simd::float4x4&)viewProjMatrix;
+
+//- (void)updateUniformBuffer:(NSUInteger)bufferIndex;
 
 - (void)render:(id <MTLRenderCommandEncoder>)encoder;
 
 @property (nonatomic, getter=isHidden) BOOL hidden;
+
+@property (nonatomic, readonly) NSArray<Node *> *children;
+- (void)addChild:(Node *)child;
+
+@property (nonatomic, weak) Node *parent;
+- (void)removeFromParentNode;
 
 @end

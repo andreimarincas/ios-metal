@@ -35,6 +35,8 @@ using namespace MTL;
 {
     id <MTLBuffer> _dynamicUniformBuffer[kInFlightCommandBuffers];
     
+    NSMutableArray<Node *> *_children;
+    
     quat _orientation;
 }
 
@@ -53,19 +55,22 @@ using namespace MTL;
         self.name = name;
         
         // Create the vertex buffer
-        size_t sizeOfVertex = sizeof(Vertex);
-        NSMutableData *vertexData = [[NSMutableData alloc] initWithCapacity:[vertices count] * sizeOfVertex];
-        
-        for (NSInteger i = 0; i < [vertices count]; i++)
+        if ([vertices count])
         {
-            Vertex vertex = [vertices[i] vertexValue];
-            [vertexData appendBytes:&vertex length:sizeOfVertex];
+            size_t sizeOfVertex = sizeof(Vertex);
+            NSMutableData *vertexData = [[NSMutableData alloc] initWithCapacity:[vertices count] * sizeOfVertex];
+            
+            for (NSInteger i = 0; i < [vertices count]; i++)
+            {
+                Vertex vertex = [vertices[i] vertexValue];
+                [vertexData appendBytes:&vertex length:sizeOfVertex];
+            }
+            
+            _vertexBuffer = [device newBufferWithBytes: [vertexData bytes]
+                                                length: [vertexData length]
+                                               options: MTLResourceOptionCPUCacheModeDefault];
+            _vertexCount = [vertices count];
         }
-        
-        _vertexBuffer = [device newBufferWithBytes: [vertexData bytes]
-                                            length: [vertexData length]
-                                           options: MTLResourceOptionCPUCacheModeDefault];
-        _vertexCount = [vertices count];
         
         // Allocate a number of uniform buffers in memory that matches the sempahore count so that
         // we always have one self contained memory buffer for each buffered frame.
@@ -75,14 +80,17 @@ using namespace MTL;
             _dynamicUniformBuffer[i] = [device newBufferWithLength:sizeof(Uniforms) options:0];
         }
         
-        // Initial orientation is the unit quaternion (no rotation).
-        _orientation = quat_identity;
+        // Initial model transformation values
+        _scale = float3(1.0f); // no scale
+        _orientation = quat_identity; // initial orientation is the unit quaternion (no rotation).
+        
+        _children = [[NSMutableArray alloc] init];
     }
     
     return self;
 }
 
-- (void)rotateBy:(float)angle aroundAxis:(const simd::float3&)axis
+- (void)rotateBy:(float)angle aroundAxis:(const float3&)axis
 {
     _orientation = normalize(rotation_quat(angle, axis) * _orientation);
     
@@ -98,38 +106,101 @@ using namespace MTL;
 - (float4x4)modelMatrix
 {
     float4x4 pos_Matrix = translation(_position);
+    float4x4 scale_Matrix = scale(_scale);
     float4x4 rot_Matrix = rotation_mat(_orientation);
     
-    return pos_Matrix * rot_Matrix;
+    return pos_Matrix * rot_Matrix * scale_Matrix;
 }
 
 - (void)updateUniformBuffer:(NSUInteger)bufferIndex
-                 viewMatrix:(const float4x4&)viewMatrix
-           projectionMatrix:(const float4x4&)projMatrix
+       viewProjectionMatrix:(const simd::float4x4&)viewProjMatrix
 {
     _uniformBufferIndex = bufferIndex;
     id <MTLBuffer> uniformBuffer = [self currentUniformBuffer];
     
-    float4x4 baseModelMatrix = [self modelMatrix];
+    Uniforms& uniformData = *(Uniforms *)[uniformBuffer contents];
+    uniformData.modelview_projection_matrix = viewProjMatrix * [self modelMatrix];
+}
+
+- (void)updateUniformBuffer:(NSUInteger)bufferIndex
+          parentModelMatrix:(const simd::float4x4&)pModelMatrix
+       viewProjectionMatrix:(const simd::float4x4&)viewProjMatrix
+{
+    _uniformBufferIndex = bufferIndex;
+    id <MTLBuffer> uniformBuffer = [self currentUniformBuffer];
+    
+    float4x4 modelMatrix = pModelMatrix * [self modelMatrix];
     
     Uniforms& uniformData = *(Uniforms *)[uniformBuffer contents];
-    uniformData.modelViewMatrix = viewMatrix * baseModelMatrix;
-    uniformData.projectionMatrix = projMatrix;
+    uniformData.modelview_projection_matrix = viewProjMatrix * modelMatrix;
+    
+    for (Node *node in _children)
+    {
+        [node updateUniformBuffer:bufferIndex
+                parentModelMatrix:modelMatrix
+             viewProjectionMatrix:viewProjMatrix];
+    }
 }
+
+//- (void)updateUniformBuffer:(NSUInteger)bufferIndex
+//{
+//    _uniformBufferIndex = bufferIndex;
+//    
+//    id <MTLBuffer> uniformBuffer = [self currentUniformBuffer];
+//    id <MTLBuffer> pUniformBuffer = [_parent currentUniformBuffer];
+//    
+//    Uniforms& uniformData = *(Uniforms *)[uniformBuffer contents];
+//    Uniforms& pUniformData = *(Uniforms *)[pUniformBuffer contents];
+//    
+//    uniformData.modelview_projection_matrix = pUniformData.modelview_projection_matrix * [self modelMatrix];
+//    
+//    for (Node *node in _children)
+//    {
+//        [node updateUniformBuffer:bufferIndex];
+//    }
+//}
 
 - (void)render:(id <MTLRenderCommandEncoder>)encoder
 {
-    // Use backface culling to fix trasparency
-    [encoder setCullMode:MTLCullModeFront];
-    [encoder setFrontFacingWinding:MTLWindingCounterClockwise];
+    for (Node *node in _children)
+    {
+        [node render:encoder];
+    }
     
-    // Set buffers
-    [encoder setVertexBuffer:_vertexBuffer offset:0 atIndex:0];
-    [encoder setVertexBuffer:[self currentUniformBuffer] offset:0 atIndex:1];
-    
-    // Tell the GPU to draw a set of triangles based on the vertex buffer.
-    // Each triangle consists of 3 vertices, starting at index 0 inside the vertex buffer.
-    [encoder drawPrimitives:MTLPrimitiveTypeTriangle vertexStart:0 vertexCount:_vertexCount];
+    if (!_hidden && _vertexCount)
+    {
+        // Use backface culling to fix trasparency
+        [encoder setCullMode:MTLCullModeFront];
+        [encoder setFrontFacingWinding:MTLWindingCounterClockwise];
+        
+        // Set buffers
+        [encoder setVertexBuffer:_vertexBuffer offset:0 atIndex:0];
+        [encoder setVertexBuffer:[self currentUniformBuffer] offset:0 atIndex:1];
+        
+        // Tell the GPU to draw a set of triangles based on the vertex buffer.
+        // Each triangle consists of 3 vertices, starting at index 0 inside the vertex buffer.
+        [encoder drawPrimitives:MTLPrimitiveTypeTriangle vertexStart:0 vertexCount:_vertexCount];
+    }
+}
+
+- (NSArray<Node *> *)children
+{
+    return _children;
+}
+
+- (void)addChild:(Node *)child
+{
+    [child removeFromParentNode];
+    [_children addObject:child];
+    child.parent = self;
+}
+
+- (void)removeFromParentNode
+{
+    if (_parent)
+    {
+        [(NSMutableArray *)[_parent children] removeObject:self];
+    }
 }
 
 @end

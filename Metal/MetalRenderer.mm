@@ -8,7 +8,6 @@
 
 #import "MetalRenderer.h"
 #import "Node.h"
-#import "Cube.h"
 #import "Transforms.h"
 #import "SharedTypes.h"
 
@@ -33,19 +32,13 @@ static const float kFar  = 100.0f;
     // The MTLCommandQueue provides a way to submit commands or instructions to the GPU. Think of this as an ordered list of commands that you tell the GPU to execute, one at a time.
     id <MTLCommandQueue>        _commandQueue;
     
-    // Globals used in update calculation
     float4x4                    _projectionMatrix;
-    float4x4                    _viewMatrix;
-    float                       _rotation;
     
     dispatch_semaphore_t        _inflight_semaphore;
     
     // This value will cycle from 0 to kInFlightCommandBuffers whenever a display completes ensuring renderer clients
     // can synchronize between kInFlightCommandBuffers count buffers, and thus avoiding a constant buffer from being overwritten between draws.
     NSUInteger                  _uniformBufferIndex;
-    
-    Cube                        *_cube1;
-    Cube                        *_cube2;
 }
 
 @end
@@ -58,8 +51,6 @@ static const float kFar  = 100.0f;
     
     if (self)
     {
-        _projectionMatrix = identity4x4();
-        _viewMatrix = identity4x4();
         _inflight_semaphore = dispatch_semaphore_create(kInFlightCommandBuffers);
     }
     
@@ -90,15 +81,6 @@ static const float kFar  = 100.0f;
     
     // Set ourself as delegate to handle rendering in metal view
     view.delegate = self;
-    
-    //
-    _cube1 = [[Cube alloc] initWithName:@"Cube1" device:_device];
-    _cube1.position.xyz = float3(1.0f);
-    
-    _cube2 = [[Cube alloc] initWithName:@"Cube2" device:_device];
-    _cube2.position.xyz = float3(-1.0f);
-    _cube2.hidden = YES;
-    //
 }
 
 - (void)preparePipelineState
@@ -142,18 +124,6 @@ static const float kFar  = 100.0f;
     }
 }
 
-- (void)updateUniformBuffers
-{
-    [_cube1 updateUniformBuffer:_uniformBufferIndex viewMatrix:_viewMatrix projectionMatrix:_projectionMatrix];
-    [_cube2 updateUniformBuffer:_uniformBufferIndex viewMatrix:_viewMatrix projectionMatrix:_projectionMatrix];
-}
-
-- (void)render:(id <MTLRenderCommandEncoder>)encoder
-{
-    [_cube1 render:encoder];
-    [_cube2 render:encoder];
-}
-
 #pragma mark - MetalViewDelegate (Render)
 
 - (void)metalView:(MetalView *)view drawableSizeWillChange:(CGSize)size
@@ -162,7 +132,6 @@ static const float kFar  = 100.0f;
     
     float aspect = fabs(view.bounds.size.width / view.bounds.size.height);
     _projectionMatrix = perspective_fov(kFOVY, aspect, kNear, kFar);
-    _viewMatrix = translation(0, 0, 5);
 }
 
 - (void)drawInMetalView:(MetalView *)view
@@ -172,7 +141,7 @@ static const float kFar  = 100.0f;
     dispatch_semaphore_wait(_inflight_semaphore, DISPATCH_TIME_FOREVER);
     
     // Prior to sending any data to the GPU, constant buffers should be updated accordingly on the CPU.
-    [self updateUniformBuffers];
+    [_scene updateUniformBuffer:_uniformBufferIndex projectionMatrix:_projectionMatrix];
     
     // Create a new command buffer for each renderpass to the current drawable.
     // This ia a serial list of commands for the device to execute.
@@ -192,8 +161,8 @@ static const float kFar  = 100.0f;
         // Set the pipeline state
         [encoder setRenderPipelineState:_pipelineState];
         
-        // Render nodes
-        [self render:encoder];
+        // Render scene
+        [_scene render:encoder];
         
         // Declare that all command generation from this encoder is complete, and detach from the MTLCommandBuffer.
         [encoder endEncoding];
@@ -235,13 +204,15 @@ static const float kFar  = 100.0f;
     static const float speedY = 360.0f / 8.0f;
     static const float speedZ = 360.0f / 6.0f;
     
-    [_cube1 rotateBy:t * speedZ aroundAxis:zAxis];
-    [_cube1 rotateBy:t * speedY aroundAxis:yAxis];
-    [_cube1 rotateBy:t * speedX aroundAxis:xAxis];
+    Node *grandparent = _scene.children[0];
+    Node *parent = grandparent.children[0];
+    Node *cube = parent.children[0];
     
-    [_cube2 rotateBy:-t * speedZ aroundAxis:zAxis];
-    [_cube2 rotateBy:-t * speedY aroundAxis:yAxis];
-    [_cube2 rotateBy:-t * speedX aroundAxis:xAxis];
+    [cube rotateBy:t * speedZ aroundAxis:zAxis];
+    [cube rotateBy:t * speedY aroundAxis:yAxis];
+    [cube rotateBy:t * speedX aroundAxis:xAxis];
+    
+    [parent rotateBy:t * speedY aroundAxis:yAxis];
 }
 
 - (void)viewController:(MetalViewController *)controller willPause:(BOOL)pause
