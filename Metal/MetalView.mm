@@ -15,6 +15,10 @@
     __weak CAMetalLayer *_metalLayer;
     
     BOOL _layerSizeDidUpdate;
+    
+    id <MTLTexture> _depthTex;
+    id <MTLTexture> _stencilTex;
+    id <MTLTexture> _msaaTex; // multisample anti-aliasing
 }
 
 @synthesize currentDrawable = _currentDrawable;
@@ -157,8 +161,95 @@
     colorAttachment.loadAction = MTLLoadActionClear;
     colorAttachment.clearColor = self.clearColor;
     
-    // Store only attachments that will be presented to the screen, as in this case
-    colorAttachment.storeAction = MTLStoreActionStore;
+    // If sample count is greater than 1, render into using MSAA, then resolve into our color texture
+    if (_sampleCount > 1)
+    {
+        BOOL doUpdate = (_msaaTex.width != texture.width) || (_msaaTex.height != texture.height) || (_msaaTex.sampleCount != _sampleCount);
+        
+        if (!_msaaTex || (_msaaTex && doUpdate))
+        {
+            MTLTextureDescriptor *msaaTexDesc = [MTLTextureDescriptor texture2DDescriptorWithPixelFormat: MTLPixelFormatBGRA8Unorm
+                                                                                                   width: texture.width
+                                                                                                  height: texture.height
+                                                                                               mipmapped: NO];
+            msaaTexDesc.textureType = MTLTextureType2DMultisample;
+            
+            // Sample count was specified to the view by the renderer.
+            // This must match the sample count given to any pipeline state using this render pass descriptor.
+            msaaTexDesc.sampleCount = _sampleCount;
+            
+            _msaaTex = [_device newTextureWithDescriptor:msaaTexDesc];
+        }
+        
+        // When multisampling, perform rendering to _msaaTex, then resolve
+        // to 'texture' at the end of the scene
+        colorAttachment.texture = _msaaTex;
+        colorAttachment.resolveTexture = texture;
+        
+        // Set store action to resolve in this case
+        colorAttachment.storeAction = MTLStoreActionMultisampleResolve;
+    }
+    else
+    {
+        // Store only attachments that will be presented to the screen, as in this case
+        colorAttachment.storeAction = MTLStoreActionStore;
+    } // color0
+    
+    // Create the depth and stencil attachments
+    
+    if (_depthPixelFormat != MTLPixelFormatInvalid)
+    {
+        BOOL doUpdate = (_depthTex.width != texture.width) || (_depthTex.height != texture.height) || (_depthTex.sampleCount != _sampleCount);
+        
+        if (!_depthTex || doUpdate)
+        {
+            //  If we need a depth texture and don't have one, or if the depth texture we have is the wrong size
+            //  then allocate one of the proper size
+            MTLTextureDescriptor *depthTexDesc = [MTLTextureDescriptor texture2DDescriptorWithPixelFormat: _depthPixelFormat
+                                                                                                    width: texture.width
+                                                                                                   height: texture.height
+                                                                                                mipmapped: NO];
+            
+            depthTexDesc.textureType = (_sampleCount > 1) ? MTLTextureType2DMultisample : MTLTextureType2D;
+            depthTexDesc.sampleCount = _sampleCount;
+            depthTexDesc.usage = MTLTextureUsageUnknown;
+            depthTexDesc.storageMode = MTLStorageModePrivate;
+            
+            _depthTex = [_device newTextureWithDescriptor:depthTexDesc];
+            
+            MTLRenderPassDepthAttachmentDescriptor *depthAttachment = _renderPassDescriptor.depthAttachment;
+            depthAttachment.texture = _depthTex;
+            depthAttachment.loadAction = MTLLoadActionClear;
+            depthAttachment.storeAction = MTLStoreActionDontCare;
+            depthAttachment.clearDepth = 1.0;
+        }
+    } // depth
+    
+    if (_stencilPixelFormat != MTLPixelFormatInvalid)
+    {
+        BOOL doUpdate = (_stencilTex.width != texture.width) || (_stencilTex.height != texture.height) || (_stencilTex.sampleCount != _sampleCount);
+        
+        if (!_stencilTex || doUpdate)
+        {
+            //  If we need a stencil texture and don't have one, or if the depth texture we have is the wrong size
+            //  Then allocate one of the proper size
+            MTLTextureDescriptor *stencilTexDesc = [MTLTextureDescriptor texture2DDescriptorWithPixelFormat: _stencilPixelFormat
+                                                                                                      width: texture.width
+                                                                                                     height: texture.height
+                                                                                                  mipmapped: NO];
+            
+            stencilTexDesc.textureType = (_sampleCount > 1) ? MTLTextureType2DMultisample : MTLTextureType2D;
+            stencilTexDesc.sampleCount = _sampleCount;
+            
+            _stencilTex = [_device newTextureWithDescriptor:stencilTexDesc];
+            
+            MTLRenderPassStencilAttachmentDescriptor *stencilAttachment = _renderPassDescriptor.stencilAttachment;
+            stencilAttachment.texture = _stencilTex;
+            stencilAttachment.loadAction = MTLLoadActionClear;
+            stencilAttachment.storeAction = MTLStoreActionDontCare;
+            stencilAttachment.clearStencil = 0;
+        }
+    } //stencil
 }
 
 - (void)setColorPixelFormat:(MTLPixelFormat)colorPixelFormat

@@ -25,6 +25,11 @@
 // Render pass descriptor from current drawable's texture
 @property (nonatomic, readonly) MTLRenderPassDescriptor *renderPassDescriptor;
 
+// Set these pixel formats to have the main drawable framebuffer get created with depth and/or stencil attachments
+@property (nonatomic) MTLPixelFormat depthPixelFormat;
+@property (nonatomic) MTLPixelFormat stencilPixelFormat;
+@property (nonatomic) NSUInteger sampleCount;
+
 // The clear color value used to generate the currentRenderPassDescriptor. Default is (0.0, 0.0, 0.0, 1.0) - black opaque.
 @property (nonatomic) MTLClearColor clearColor;
 

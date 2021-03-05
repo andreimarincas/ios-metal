@@ -88,6 +88,10 @@ static const float3 zAxis = { 0.0f, 0.0f, 1.0f };
     // MTLRenderPipelineState represents a compiled render pipeline that can be set on a MTLRenderCommandEncoder
     id <MTLRenderPipelineState> _pipelineState;
     
+    id <MTLDepthStencilState> _depthState;
+    
+    MTLVertexDescriptor *_vertexDescriptor;
+    
     // The MTLCommandQueue provides a way to submit commands or instructions to the GPU. Think of this as an ordered list of commands that you tell the GPU to execute, one at a time.
     id <MTLCommandQueue> _commandQueue;
     
@@ -238,6 +242,13 @@ static const float3 zAxis = { 0.0f, 0.0f, 1.0f };
     _metalView.clearColor = MTLClearColorMake(0.0, 0.0, 0.0, 1.0);
     _metalView.delegate = self;
     _metalView.device = _device;
+    
+    // Setup view with drawable formats
+    _metalView.depthPixelFormat = MTLPixelFormatDepth32Float;
+    _metalView.stencilPixelFormat = MTLPixelFormatInvalid;
+    _metalView.sampleCount = 4; // 1 (no sampling), 2, 4
+    
+    assert([_device supportsTextureSampleCount:_metalView.sampleCount]);
 }
 
 - (void)preparePipelineState
@@ -268,13 +279,16 @@ static const float3 zAxis = { 0.0f, 0.0f, 1.0f };
     vertexDescriptor.attributes[VertexAttributeColor].format = MTLVertexFormatFloat4;
     vertexDescriptor.attributes[VertexAttributeColor].offset = 12;
     vertexDescriptor.attributes[VertexAttributeColor].bufferIndex = VertexBufferIndex;
-    // Buffer layout
+    // Single interleaved buffer
     vertexDescriptor.layouts[VertexBufferIndex].stride = sizeof(Vertex);
     vertexDescriptor.layouts[VertexBufferIndex].stepRate = 1;
     vertexDescriptor.layouts[VertexBufferIndex].stepFunction = MTLVertexStepFunctionPerVertex;
     
+    _vertexDescriptor = vertexDescriptor;
+    
     // Create a pipeline state descriptor which can be used to create a compiled pipeline state object
     MTLRenderPipelineDescriptor *pipelineStateDescriptor = [[MTLRenderPipelineDescriptor alloc] init];
+    pipelineStateDescriptor.sampleCount = _metalView.sampleCount;
     // Set shaders
     pipelineStateDescriptor.vertexFunction = vertexProgram;
     pipelineStateDescriptor.fragmentFunction = fragmentProgram;
@@ -282,6 +296,8 @@ static const float3 zAxis = { 0.0f, 0.0f, 1.0f };
     pipelineStateDescriptor.vertexDescriptor = vertexDescriptor;
     // Set framebuffer pixel format
     pipelineStateDescriptor.colorAttachments[0].pixelFormat = _metalView.colorPixelFormat; // This is the output buffer you are rendering to – the CAMetalLayer itself.
+    pipelineStateDescriptor.depthAttachmentPixelFormat = _metalView.depthPixelFormat;
+    pipelineStateDescriptor.stencilAttachmentPixelFormat = _metalView.stencilPixelFormat;
     
     // Compile the pipeline configuration into a pipeline state which will be deployed to the device
     // Shader functions (from the render pipeline descriptor) are compiled when this is created unless they are obtained from the device's cache
@@ -295,6 +311,11 @@ static const float3 zAxis = { 0.0f, 0.0f, 1.0f };
         // Cannot render anything without a valid compiled pipeline state object.
         assert(0);
     }
+    
+    MTLDepthStencilDescriptor *depthStencilDesc = [[MTLDepthStencilDescriptor alloc] init];
+    depthStencilDesc.depthCompareFunction = MTLCompareFunctionLess;
+    depthStencilDesc.depthWriteEnabled = YES;
+    _depthState = [_device newDepthStencilStateWithDescriptor:depthStencilDesc];
 }
 
 - (void)createUniformBuffers
@@ -360,24 +381,9 @@ static const float3 zAxis = { 0.0f, 0.0f, 1.0f };
                                                      geometryType: MDLGeometryTypeTriangles
                                                          material: nil];
     
-    MDLVertexDescriptor *vertexDescriptor = [[MDLVertexDescriptor alloc] init];
-    
-    MDLVertexAttribute *positionAttr = [[MDLVertexAttribute alloc] initWithName: MDLVertexAttributePosition
-                                                                         format: MDLVertexFormatFloat3
-                                                                         offset: 0
-                                                                    bufferIndex: VertexBufferIndex];
-    
-    MDLVertexAttribute *colorAttr = [[MDLVertexAttribute alloc] initWithName: MDLVertexAttributeColor
-                                                                      format: MDLVertexFormatFloat4
-                                                                      offset: 12
-                                                                 bufferIndex: VertexBufferIndex];
-    
-    [vertexDescriptor addOrReplaceAttribute:positionAttr];
-    [vertexDescriptor addOrReplaceAttribute:colorAttr];
-    
-    MDLVertexBufferLayout *vertexLayout = [[MDLVertexBufferLayout alloc] init];
-    vertexLayout.stride = sizeof(Vertex);
-    vertexDescriptor.layouts = [NSMutableArray arrayWithObject:vertexLayout];
+    MDLVertexDescriptor *vertexDescriptor = MTKModelIOVertexDescriptorFromMetal(_vertexDescriptor);
+    vertexDescriptor.attributes[VertexAttributePosition].name = MDLVertexAttributePosition;
+    vertexDescriptor.attributes[VertexAttributeColor].name = MDLVertexAttributeColor;
     
     MDLMesh *mesh = [[MDLMesh alloc] initWithVertexBuffer: vertexBuffer
                                               vertexCount: vertexCount
@@ -505,32 +511,37 @@ static const float3 zAxis = { 0.0f, 0.0f, 1.0f };
         
         // Create first a render command encoder so we can render into something.
         // The render command encoder is a container for graphics rendering state and the code to translate the state into a command format that the device can execute.
-        id <MTLRenderCommandEncoder> encoder = [commandBuffer renderCommandEncoderWithDescriptor:renderPassDescriptor]; // Returns a render command endcoder to encode into this command buffer
+        id <MTLRenderCommandEncoder> renderEncoder = [commandBuffer renderCommandEncoderWithDescriptor:renderPassDescriptor]; // Returns a render command endcoder to encode into this command buffer
+        
+        [renderEncoder setDepthStencilState:_depthState];
         
         // Set the pipeline state
-        [encoder setRenderPipelineState:_pipelineState];
-        
-        // Use backface culling to fix trasparency
-        [encoder setCullMode:MTLCullModeFront];
-        [encoder setFrontFacingWinding:MTLWindingCounterClockwise];
+        [renderEncoder setRenderPipelineState:_pipelineState];
         
         // Set the our per frame uniforms.
-        [encoder setVertexBuffer:_dynamicUniformBuffer[_uniformBufferIndex] offset:0 atIndex:UniformBufferIndex];
+        [renderEncoder setVertexBuffer:_dynamicUniformBuffer[_uniformBufferIndex] offset:0 atIndex:UniformBufferIndex];
+        
+        NSUInteger bufferIndex = 0;
         
         // Set mesh's vertex buffers.
         for (MTKMeshBuffer *vertexBuffer in _mesh.vertexBuffers)
         {
-            [encoder setVertexBuffer:vertexBuffer.buffer offset:vertexBuffer.offset atIndex:VertexBufferIndex];
+            if (vertexBuffer.buffer != nil)
+            {
+                [renderEncoder setVertexBuffer:vertexBuffer.buffer offset:vertexBuffer.offset atIndex:bufferIndex];
+            }
+            
+            bufferIndex++;
         }
         
         // Render each submesh.
         for (MTKSubmesh *submesh in _mesh.submeshes)
         {
-            [encoder drawIndexedPrimitives:submesh.primitiveType indexCount:submesh.indexCount indexType:submesh.indexType indexBuffer:submesh.indexBuffer.buffer indexBufferOffset:submesh.indexBuffer.offset];
+            [renderEncoder drawIndexedPrimitives:submesh.primitiveType indexCount:submesh.indexCount indexType:submesh.indexType indexBuffer:submesh.indexBuffer.buffer indexBufferOffset:submesh.indexBuffer.offset];
         }
         
         // Declare that all command generation from this encoder is complete, and detach from the MTLCommandBuffer.
-        [encoder endEncoding];
+        [renderEncoder endEncoding];
         
         // Tell CoreAnimation when to present this drawable.
         // The new texture is presented as soon as the drawing completes.
@@ -586,8 +597,8 @@ static const float3 zAxis = { 0.0f, 0.0f, 1.0f };
 - (float4x4)modelMatrix
 {
     float4x4 pos_Matrix = translation(_position);
-    float4x4 scale_Matrix = scale(_scale);
     float4x4 rot_Matrix = rotation_mat(_orientation);
+    float4x4 scale_Matrix = scale(_scale);
     
     return pos_Matrix * rot_Matrix * scale_Matrix;
 }
