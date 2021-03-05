@@ -1,5 +1,5 @@
 //
-//  MetalRenderer.m
+//  MetalRenderer.mm
 //  Metal01
 //
 //  Created by Andrei Marincas on 3/1/16.
@@ -7,11 +7,23 @@
 //
 
 #import "MetalRenderer.h"
+#import "Transforms.h"
+#import "SharedTypes.h"
 
-static const float vertexData[] =
-{    0.0,  1.0, 0.0,
-    -1.0, -1.0, 0.0,
-     1.0, -1.0, 0.0
+using namespace MTL;
+using namespace simd;
+
+struct Vertex
+{
+    simd::float3 position;
+    simd::float4 color;
+};
+
+static const Vertex vertex_data[] =
+{
+    { {  0.0f,  0.5f, 0.0f }, { 1.0f, 0.0f, 0.0f, 1.0f } },
+    { { -0.5f, -0.5f, 0.0f }, { 0.0f, 1.0f, 0.0f, 1.0f } },
+    { {  0.5f, -0.5f, 0.0f }, { 0.0f, 0.0f, 1.0f, 1.0f } }
 };
 
 @interface MetalRenderer ()
@@ -21,6 +33,7 @@ static const float vertexData[] =
     
     // The MTLBuffer is a typeless allocation accessible by both the CPU and the GPU (MTLDevice)
     id <MTLBuffer> _vertexBuffer;
+    id <MTLBuffer> _transformBuffer;
     
     // Through MTLLibrary you can access any of the precompiled shaders included in your project
     id <MTLLibrary> _library;
@@ -38,19 +51,8 @@ static const float vertexData[] =
 
 - (void)configure:(MetalView *)view
 {
-    // Find a usable device
-    _device = MTLCreateSystemDefaultDevice();
-    
-    if (!_device)
-    {
-        NSLog(@"ERROR: Metal is not supported on this device");
-        assert(0);
-    }
-    
-    view.device = _device;
-    
-    // Create vertex buffer
-    _vertexBuffer = [_device newBufferWithBytes:vertexData length:sizeof(vertexData) options:0]; // Pass 0 to accept the default options
+    // Get the view's device
+    _device = view.device;
     
     // Create a new command queue
     _commandQueue = [_device newCommandQueue];
@@ -79,14 +81,14 @@ static const float vertexData[] =
 - (void)preparePipelineState
 {
     // Read shader programs from the default library
-    id <MTLFunction> vertexProgram = [_library newFunctionWithName:@"basic_vertex"];
+    id <MTLFunction> vertexProgram = [_library newFunctionWithName:@"vertex_program"];
     
     if (!vertexProgram)
     {
         NSLog(@"ERROR: Couldn't load vertex function from default library");
     }
     
-    id <MTLFunction> fragmentProgram = [_library newFunctionWithName:@"basic_fragment"];
+    id <MTLFunction> fragmentProgram = [_library newFunctionWithName:@"fragment_program"];
     
     if (!fragmentProgram)
     {
@@ -119,8 +121,15 @@ static const float vertexData[] =
 
 - (void)createBuffers
 {
-    // Create vertex buffer
-    _vertexBuffer = [_device newBufferWithBytes:vertexData length:sizeof(vertexData) options:0]; // Pass 0 to accept the default options
+    _vertexBuffer = [_device newBufferWithBytes: vertex_data
+                                         length: sizeof(vertex_data)
+                                        options: MTLResourceOptionCPUCacheModeDefault];
+    
+    _transformBuffer = [_device newBufferWithLength:sizeof(TransformData) options:0];
+    
+    TransformData *data = (TransformData *)[_transformBuffer contents];
+    float4x4 t = scale(1.0, 0.5, 1.0);
+    data->transform = t;
 }
 
 #pragma mark - MetalViewDelegate (Render)
@@ -147,9 +156,12 @@ static const float vertexData[] =
         // The render command encoder is a container for graphics rendering state and the code to translate the state into a command format that the device can execute.
         id <MTLRenderCommandEncoder> renderEncoder = [commandBuffer renderCommandEncoderWithDescriptor:renderPassDescriptor]; // Returns a render command endcoder to encode into this command buffer
         
-        // Set the pipeline state and vertex buffer created earlier
+        // Set the pipeline state
         [renderEncoder setRenderPipelineState:_pipelineState];
+        
+        // Set buffers
         [renderEncoder setVertexBuffer:_vertexBuffer offset:0 atIndex:0];
+        [renderEncoder setVertexBuffer:_transformBuffer offset:0 atIndex:1];
         
         // Tell the GPU to draw a set of triangles based on the vertex buffer.
         // Each triangle consists of 3 vertices, starting at index 0 inside the vertex buffer, and there is 1 triangle total.

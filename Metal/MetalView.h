@@ -17,7 +17,7 @@
 @property (nonatomic, weak) id <MetalViewDelegate> delegate;
 
 // The MTLDevice used to create Metal objects
-@property (nonatomic) id <MTLDevice> device;
+@property (nonatomic, readonly) id <MTLDevice> device;
 
 // The drawable to be used for the current frame
 @property (nonatomic, readonly) id <CAMetalDrawable> currentDrawable;

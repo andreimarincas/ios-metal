@@ -19,6 +19,7 @@
 
 @implementation MetalView
 
+@synthesize device = _device;
 @synthesize currentDrawable = _currentDrawable;
 @synthesize currentRenderPassDescriptor = _renderPassDescriptor;
 
@@ -68,8 +69,20 @@
     self.opaque = YES;
     self.backgroundColor = nil;
     
+    // Find a usable device
+    _device = MTLCreateSystemDefaultDevice();
+    
+    if (!_device)
+    {
+        NSLog(@"ERROR: Metal is not supported on this device");
+        assert(0);
+    }
+    
     _metalLayer = (CAMetalLayer *)self.layer;
+    _metalLayer.device = _device;
     _metalLayer.pixelFormat = MTLPixelFormatBGRA8Unorm;
+    
+    // This is the default but if we wanted to perform compute on the final rendering layer we could set this to no
     _metalLayer.framebufferOnly = YES;
     
     _clearColor = MTLClearColorMake(0.0, 0.0, 0.0, 1.0);
