@@ -513,6 +513,8 @@ static const float3 zAxis = { 0.0f, 0.0f, 1.0f };
         // The render command encoder is a container for graphics rendering state and the code to translate the state into a command format that the device can execute.
         id <MTLRenderCommandEncoder> renderEncoder = [commandBuffer renderCommandEncoderWithDescriptor:renderPassDescriptor]; // Returns a render command endcoder to encode into this command buffer
         
+        [renderEncoder setViewport:{ 0, 0, _metalView.drawableSize.width, _metalView.drawableSize.height, 0, 1 }];
+        
         [renderEncoder setDepthStencilState:_depthState];
         
         // Set the pipeline state

@@ -128,6 +128,12 @@
     return _currentDrawable;
 }
 
+- (CGSize)drawableSize
+{
+    id <CAMetalDrawable> drawable = self.currentDrawable;
+    return CGSizeMake(drawable.texture.width, drawable.texture.height);
+}
+
 - (MTLRenderPassDescriptor *)renderPassDescriptor
 {
     id <CAMetalDrawable> drawable = self.currentDrawable;

@@ -22,6 +22,8 @@
 // The drawable to be used for the current frame
 @property (nonatomic, readonly) id <CAMetalDrawable> currentDrawable;
 
+@property (nonatomic, readonly) CGSize drawableSize;
+
 // Render pass descriptor from current drawable's texture
 @property (nonatomic, readonly) MTLRenderPassDescriptor *renderPassDescriptor;
 
