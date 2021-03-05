@@ -13,16 +13,46 @@
 using namespace simd;
 using namespace MTL;
 
-static const float kEquiH_f     = sqrtf(3.0f) / 2.0f; // height of an equilateral triangle with side = 1 (aprox. 0.866)
-static const float kOneThird_f  = kEquiH_f / 3.0f;
-static const float kTwoThirds_f = 2.0f * kOneThird_f;
+static const float kFOVY   = 65.0f;
+static const float kNear   = 0.1f;
+static const float kFar    = 100.0f;
 
-// position, color
+//static const float kEquiH_f     = sqrtf(3.0f) / 2.0f; // height of an equilateral triangle with side = 1 (aprox. 0.866)
+//static const float kOneThird_f  = kEquiH_f / 3.0f;
+//static const float kTwoThirds_f = 2.0f * kOneThird_f;
+//
+//// position, color
+//static const float vertex_data[] =
+//{
+//     0.0f,  kTwoThirds_f, 0.0f,   1.0f, 0.0f, 0.0f, 1.0f,
+//    -0.5f, -kOneThird_f,  0.0f,   0.0f, 1.0f, 0.0f, 1.0f,
+//     0.5f, -kOneThird_f,  0.0f,   0.0f, 0.0f, 1.0f, 1.0f
+//};
+
+static const float kWidth  = 0.5f;
+static const float kHeight = 0.5f;
+static const float kDepth  = 0.0f;
+
+//// position (x,y,z), color (r,g,b,a)
+//static const float vertex_data[] =
+//{
+//     kWidth,  kHeight,  kDepth,   1, 0, 0, 0,
+//    -kWidth,  kHeight,  kDepth,   1, 0, 0, 0,
+//    -kWidth, -kHeight,  kDepth,   1, 0, 0, 0,
+//    -kWidth, -kHeight,  kDepth,   1, 0, 0, 0,
+//     kWidth, -kHeight,  kDepth,   1, 0, 0, 0,
+//     kWidth,  kHeight,  kDepth,   1, 0, 0, 0
+//};
+
+// position (x,y,z), color (r,g,b,a)
 static const float vertex_data[] =
 {
-     0.0f,  kTwoThirds_f, 0.0f,    1.0f, 0.0f, 0.0f, 1.0f,
-    -0.5f, -kOneThird_f,  0.0f,    0.0f, 1.0f, 0.0f, 1.0f,
-     0.5f, -kOneThird_f,  0.0f,    0.0f, 0.0f, 1.0f, 1.0f
+     kWidth,  kHeight,  kDepth,   1, 0, 0, 0,
+    -kWidth,  kHeight,  kDepth,   0, 1, 0, 0,
+    -kWidth, -kHeight,  kDepth,   0, 0, 1, 0,
+    -kWidth, -kHeight,  kDepth,   0, 0, 1, 0,
+     kWidth, -kHeight,  kDepth,   0, 1, 0, 0,
+     kWidth,  kHeight,  kDepth,   1, 0, 0, 0
 };
 
 @interface MetalRenderer ()
@@ -153,7 +183,13 @@ static const float vertex_data[] =
 - (void)updateTransformBuffer
 {
     TransformData *data = (TransformData *)[_transformBuffer contents];
-    float4x4 baseModelMatrix = rotation(_rotation, 0, 0, 1);
+    
+//    float4x4 baseModelMatrix = rotation(_rotation, 0, 0, 1);
+//    float4x4 baseModelMatrix = rotation(_rotation, 1, 0, 0);
+    
+//    float4x4 baseModelMatrix = translation(0, 0, 2) * rotation(_rotation, 0, 0, 1);
+    float4x4 baseModelMatrix = translation(0, 0, 2) * rotation(_rotation, 1, 0, 0);
+    
     float4x4 t = _projectionMatrix * _modelViewMatrix * baseModelMatrix;
     data->transform = t;
 }
@@ -166,10 +202,17 @@ static const float vertex_data[] =
     
     float w = view.bounds.size.width;
     float h = view.bounds.size.height;
-    float scale_xy  = fminf(w, h) / 2.0f;
+    float aspect = fabs(w / h);
     
-    _modelViewMatrix = scale(scale_xy, scale_xy, 1);
-    _projectionMatrix = ortho2d(0, w, 0, h, 0, 1);
+//    _projectionMatrix = ortho2d(-aspect, aspect, -1, 1, -1, 1);
+    
+//    float angle = MTL::radians(0.5f * kFOVY);
+//    float frustumY = kNear * std::tan(angle);
+//    float frustumX = aspect * frustumY;
+//    
+//    _projectionMatrix = frustum_oc(-frustumX, frustumX, -frustumY, frustumY, kNear, kFar);
+    
+    _projectionMatrix = perspective_fov(kFOVY, aspect, kNear, kFar);
 }
 
 - (void)drawInMetalView:(MetalView *)view
@@ -200,8 +243,9 @@ static const float vertex_data[] =
         [renderEncoder setVertexBuffer:_transformBuffer offset:0 atIndex:1];
         
         // Tell the GPU to draw a set of triangles based on the vertex buffer.
-        // Each triangle consists of 3 vertices, starting at index 0 inside the vertex buffer, and there is 1 triangle total.
-        [renderEncoder drawPrimitives:MTLPrimitiveTypeTriangle vertexStart:0 vertexCount:3 instanceCount:1];
+        // Each triangle consists of 3 vertices, starting at index 0 inside the vertex buffer.
+//        [renderEncoder drawPrimitives:MTLPrimitiveTypeTriangle vertexStart:0 vertexCount:3 instanceCount:1];
+        [renderEncoder drawPrimitives:MTLPrimitiveTypeTriangle vertexStart:0 vertexCount:6];
         
         // Declare that all command generation from this encoder is complete, and detach from the MTLCommandBuffer.
         [renderEncoder endEncoding];

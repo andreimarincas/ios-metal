@@ -8,7 +8,14 @@
 
 #import "Transforms.h"
 
+static const float kPi_f      = float(M_PI);
 static const float k1Div180_f = 1.0f / 180.0f;
+static const float kRadians   = k1Div180_f * kPi_f;
+
+float MTL::radians(const float& degrees)
+{
+    return kRadians * degrees;
+}
 
 simd::float4x4 MTL::identity()
 {
@@ -191,4 +198,82 @@ simd::float4x4 MTL::ortho2d_oc(const simd::float3& origin,
                                const simd::float3& size)
 {
     return MTL::ortho2d_oc(origin.x, origin.y, origin.z, size.x, size.y, size.z);
+}
+
+simd::float4x4 MTL::frustum_oc(const float& left,
+                               const float& right,
+                               const float& bottom,
+                               const float& top,
+                               const float& near,
+                               const float& far)
+{
+    float sWidth  = 1.0f / (right - left);
+    float sHeight = 1.0f / (top   - bottom);
+    float sDepth  = far  / (far   - near);
+    float dNear   = 2.0f * near;
+    
+    simd::float4 P;
+    simd::float4 Q;
+    simd::float4 R;
+    simd::float4 S;
+    
+    P.x = dNear * sWidth;
+    P.y = 0.0f;
+    P.z = 0.0f;
+    P.w = 0.0f;
+    
+    Q.x = 0.0f;
+    Q.y = dNear * sHeight;
+    Q.z = 0.0f;
+    Q.w = 0.0f;
+    
+    R.x = -sWidth  * (right + left);
+    R.y = -sHeight * (top   + bottom);
+    R.z =  sDepth;
+    R.w =  1.0f;
+    
+    S.x =  0.0f;
+    S.y =  0.0f;
+    S.z = -sDepth * near;
+    S.w =  0.0f;
+    
+    return simd::float4x4(P, Q, R, S);
+}
+
+simd::float4x4 MTL::perspective_fov(const float& fovy,
+                                    const float& aspect,
+                                    const float& near,
+                                    const float& far)
+{
+    float angle  = MTL::radians(0.5f * fovy);
+    float yScale = 1.0f/ std::tan(angle);
+    float xScale = yScale / aspect;
+    float zScale = far / (far - near);
+    
+    simd::float4 P;
+    simd::float4 Q;
+    simd::float4 R;
+    simd::float4 S;
+    
+    P.x = xScale;
+    P.y = 0.0f;
+    P.z = 0.0f;
+    P.w = 0.0f;
+    
+    Q.x = 0.0f;
+    Q.y = yScale;
+    Q.z = 0.0f;
+    Q.w = 0.0f;
+    
+    R.x = 0.0f;
+    R.y = 0.0f;
+    R.z = zScale;
+    R.w = 1.0f;
+    
+    S.x =  0.0f;
+    S.y =  0.0f;
+    S.z = -near * zScale;
+    S.w =  0.0f;
+    
+    return simd::float4x4(P, Q, R, S);
 }

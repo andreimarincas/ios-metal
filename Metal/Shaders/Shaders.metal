@@ -33,6 +33,7 @@ vertex VertexOutput vertex_program(device VertexInput *vertex_array [[ buffer(0)
     
     float4 in_position = float4(float3(vertex_array[vid].position), 1.0f);
     v_out.position = transform_data.transform * in_position;
+//    v_out.position /= in_position.z;
     
     float4 in_color = float4(vertex_array[vid].color);
     v_out.color = half4(in_color);

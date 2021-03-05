@@ -15,6 +15,8 @@
 
 namespace MTL
 {
+    float radians(const float& degrees);
+    
     simd::float4x4 identity();
     
     simd::float4x4 scale(const float& sx,
@@ -56,6 +58,18 @@ namespace MTL
     
     simd::float4x4 ortho2d_oc(const simd::float3& origin,
                               const simd::float3& size);
+    
+    simd::float4x4 frustum_oc(const float& left,
+                              const float& right,
+                              const float& bottom,
+                              const float& top,
+                              const float& near,
+                              const float& far);
+    
+    simd::float4x4 perspective_fov(const float& fovy,
+                                   const float& aspect,
+                                   const float& near,
+                                   const float& far);
 }
 
 #endif
