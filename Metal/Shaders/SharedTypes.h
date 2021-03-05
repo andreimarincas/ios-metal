@@ -15,9 +15,10 @@
 
 namespace MTL
 {
-    struct TransformData
+    struct Uniforms
     {
-        simd::float4x4 transform;
+        simd::float4x4 modelMatrix;
+        simd::float4x4 projectionMatrix;
     };
 }
 

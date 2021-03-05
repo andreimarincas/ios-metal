@@ -17,42 +17,36 @@ static const float kFOVY   = 65.0f;
 static const float kNear   = 0.1f;
 static const float kFar    = 100.0f;
 
-//static const float kEquiH_f     = sqrtf(3.0f) / 2.0f; // height of an equilateral triangle with side = 1 (aprox. 0.866)
-//static const float kOneThird_f  = kEquiH_f / 3.0f;
-//static const float kTwoThirds_f = 2.0f * kOneThird_f;
-//
-//// position, color
-//static const float vertex_data[] =
-//{
-//     0.0f,  kTwoThirds_f, 0.0f,   1.0f, 0.0f, 0.0f, 1.0f,
-//    -0.5f, -kOneThird_f,  0.0f,   0.0f, 1.0f, 0.0f, 1.0f,
-//     0.5f, -kOneThird_f,  0.0f,   0.0f, 0.0f, 1.0f, 1.0f
-//};
-
 static const float kWidth  = 0.5f;
 static const float kHeight = 0.5f;
-static const float kDepth  = 0.0f;
+static const float kDepth  = 0.5f;
 
-//// position (x,y,z), color (r,g,b,a)
-//static const float vertex_data[] =
-//{
-//     kWidth,  kHeight,  kDepth,   1, 0, 0, 0,
-//    -kWidth,  kHeight,  kDepth,   1, 0, 0, 0,
-//    -kWidth, -kHeight,  kDepth,   1, 0, 0, 0,
-//    -kWidth, -kHeight,  kDepth,   1, 0, 0, 0,
-//     kWidth, -kHeight,  kDepth,   1, 0, 0, 0,
-//     kWidth,  kHeight,  kDepth,   1, 0, 0, 0
-//};
-
-// position (x,y,z), color (r,g,b,a)
-static const float vertex_data[] =
+struct Vertex
 {
-     kWidth,  kHeight,  kDepth,   1, 0, 0, 0,
-    -kWidth,  kHeight,  kDepth,   0, 1, 0, 0,
-    -kWidth, -kHeight,  kDepth,   0, 0, 1, 0,
-    -kWidth, -kHeight,  kDepth,   0, 0, 1, 0,
-     kWidth, -kHeight,  kDepth,   0, 1, 0, 0,
-     kWidth,  kHeight,  kDepth,   1, 0, 0, 0
+    float x, y, z;
+    float r, g, b, a;
+};
+
+static const Vertex A = { -kWidth,  kHeight,  kDepth, 1.0, 0.0, 0.0, 1.0 };
+static const Vertex B = { -kWidth, -kHeight,  kDepth, 0.0, 1.0, 0.0, 1.0 };
+static const Vertex C = {  kWidth, -kHeight,  kDepth, 0.0, 0.0, 1.0, 1.0 };
+static const Vertex D = {  kWidth,  kHeight,  kDepth, 0.1, 0.6, 0.4, 1.0 };
+
+static const Vertex E = { -kWidth,  kHeight, -kDepth, 1.0, 0.0, 0.0, 1.0 };
+static const Vertex F = {  kWidth,  kHeight, -kDepth, 0.0, 1.0, 0.0, 1.0 };
+static const Vertex G = { -kWidth, -kHeight, -kDepth, 0.0, 0.0, 1.0, 1.0 };
+static const Vertex H = {  kWidth, -kHeight, -kDepth, 0.1, 0.6, 0.4, 1.0 };
+
+static const Vertex kCubeVertexData[] =
+{
+    A,B,C, A,C,D,   // Front
+    F,H,G, E,F,G,   // Back
+    
+    E,G,B, E,B,A,   // Left
+    D,C,H, D,H,F,   // Right
+    
+    E,A,D, E,D,F,   // Top
+    B,G,H, B,H,C    // Bottom
 };
 
 @interface MetalRenderer ()
@@ -62,7 +56,7 @@ static const float vertex_data[] =
     
     // The MTLBuffer is a typeless allocation accessible by both the CPU and the GPU (MTLDevice)
     id <MTLBuffer>              _vertexBuffer;
-    id <MTLBuffer>              _transformBuffer;
+    id <MTLBuffer>              _uniformsBuffer;
     
     // Through MTLLibrary you can access any of the precompiled shaders included in your project
     id <MTLLibrary>             _library;
@@ -74,7 +68,6 @@ static const float vertex_data[] =
     id <MTLCommandQueue>        _commandQueue;
     
     // Globals used in update calculation
-    float4x4                    _modelViewMatrix;
     float4x4                    _projectionMatrix;
     float                       _rotation;
 }
@@ -89,7 +82,6 @@ static const float vertex_data[] =
     
     if (self)
     {
-        _modelViewMatrix = identity();
         _projectionMatrix = identity();
     }
     
@@ -168,30 +160,21 @@ static const float vertex_data[] =
 
 - (void)createBuffers
 {
-    _vertexBuffer = [_device newBufferWithBytes: vertex_data
-                                         length: sizeof(vertex_data)
+    _vertexBuffer = [_device newBufferWithBytes: kCubeVertexData
+                                         length: sizeof(kCubeVertexData)
                                         options: MTLResourceOptionCPUCacheModeDefault];
     
-    _transformBuffer = [_device newBufferWithLength:sizeof(TransformData) options:0];
-    
-    // Write initial data to transform buffer
-    TransformData *data = (TransformData *)[_transformBuffer contents];
-    float4x4 t = identity();
-    data->transform = t;
+    _uniformsBuffer = [_device newBufferWithLength:sizeof(Uniforms) options:0];
 }
 
-- (void)updateTransformBuffer
+- (void)updateUniformsBuffer
 {
-    TransformData *data = (TransformData *)[_transformBuffer contents];
+    Uniforms *uniforms = (Uniforms *)[_uniformsBuffer contents];
     
-//    float4x4 baseModelMatrix = rotation(_rotation, 0, 0, 1);
-//    float4x4 baseModelMatrix = rotation(_rotation, 1, 0, 0);
+    float4x4 baseModelMatrix = translation(0, 0, 3) * rotation(_rotation, 1, 1, 1);
     
-//    float4x4 baseModelMatrix = translation(0, 0, 2) * rotation(_rotation, 0, 0, 1);
-    float4x4 baseModelMatrix = translation(0, 0, 2) * rotation(_rotation, 1, 0, 0);
-    
-    float4x4 t = _projectionMatrix * _modelViewMatrix * baseModelMatrix;
-    data->transform = t;
+    uniforms->modelMatrix = baseModelMatrix;
+    uniforms->projectionMatrix = _projectionMatrix;
 }
 
 #pragma mark - MetalViewDelegate (Render)
@@ -200,25 +183,14 @@ static const float vertex_data[] =
 {
     // When this is called, update the view and projection matrices since this means the view orientation or size has changed.
     
-    float w = view.bounds.size.width;
-    float h = view.bounds.size.height;
-    float aspect = fabs(w / h);
-    
-//    _projectionMatrix = ortho2d(-aspect, aspect, -1, 1, -1, 1);
-    
-//    float angle = MTL::radians(0.5f * kFOVY);
-//    float frustumY = kNear * std::tan(angle);
-//    float frustumX = aspect * frustumY;
-//    
-//    _projectionMatrix = frustum_oc(-frustumX, frustumX, -frustumY, frustumY, kNear, kFar);
-    
+    float aspect = fabs(view.bounds.size.width / view.bounds.size.height);
     _projectionMatrix = perspective_fov(kFOVY, aspect, kNear, kFar);
 }
 
 - (void)drawInMetalView:(MetalView *)view
 {
     // Prior to sending any data to the GPU, constant buffers should be updated accordingly on the CPU.
-    [self updateTransformBuffer];
+    [self updateUniformsBuffer];
     
     // Create a new command buffer for each renderpass to the current drawable.
     // This ia a serial list of commands for the device to execute.
@@ -235,17 +207,20 @@ static const float vertex_data[] =
         // The render command encoder is a container for graphics rendering state and the code to translate the state into a command format that the device can execute.
         id <MTLRenderCommandEncoder> renderEncoder = [commandBuffer renderCommandEncoderWithDescriptor:renderPassDescriptor]; // Returns a render command endcoder to encode into this command buffer
         
+        // Use backface culling to fix trasparency
+        [renderEncoder setCullMode:MTLCullModeFront];
+        [renderEncoder setFrontFacingWinding:MTLWindingCounterClockwise];
+        
         // Set the pipeline state
         [renderEncoder setRenderPipelineState:_pipelineState];
         
         // Set buffers
         [renderEncoder setVertexBuffer:_vertexBuffer offset:0 atIndex:0];
-        [renderEncoder setVertexBuffer:_transformBuffer offset:0 atIndex:1];
+        [renderEncoder setVertexBuffer:_uniformsBuffer offset:0 atIndex:1];
         
         // Tell the GPU to draw a set of triangles based on the vertex buffer.
         // Each triangle consists of 3 vertices, starting at index 0 inside the vertex buffer.
-//        [renderEncoder drawPrimitives:MTLPrimitiveTypeTriangle vertexStart:0 vertexCount:3 instanceCount:1];
-        [renderEncoder drawPrimitives:MTLPrimitiveTypeTriangle vertexStart:0 vertexCount:6];
+        [renderEncoder drawPrimitives:MTLPrimitiveTypeTriangle vertexStart:0 vertexCount:36];
         
         // Declare that all command generation from this encoder is complete, and detach from the MTLCommandBuffer.
         [renderEncoder endEncoding];

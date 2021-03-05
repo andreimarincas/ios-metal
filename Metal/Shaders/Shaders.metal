@@ -26,14 +26,16 @@ struct VertexOutput
 };
 
 vertex VertexOutput vertex_program(device VertexInput *vertex_array [[ buffer(0) ]],
-                                   constant TransformData& transform_data [[ buffer(1) ]],
+                                   constant Uniforms& uniforms [[ buffer(1) ]],
                                    unsigned int vid [[ vertex_id ]])
 {
     VertexOutput v_out;
     
     float4 in_position = float4(float3(vertex_array[vid].position), 1.0f);
-    v_out.position = transform_data.transform * in_position;
-//    v_out.position /= in_position.z;
+    float4x4 mv_Matrix = uniforms.modelMatrix;
+    float4x4 proj_Matrix = uniforms.projectionMatrix;
+    
+    v_out.position = proj_Matrix * mv_Matrix * in_position;
     
     float4 in_color = float4(vertex_array[vid].color);
     v_out.color = half4(in_color);
