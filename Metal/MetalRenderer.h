@@ -8,7 +8,6 @@
 
 #import <Foundation/Foundation.h>
 #import <Metal/Metal.h>
-
 #import "MetalView.h"
 #import "MetalViewController.h"
 

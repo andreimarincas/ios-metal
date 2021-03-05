@@ -1,6 +1,6 @@
 //
 //  MetalView.m
-//  Metal01
+//  Metal
 //
 //  Created by Andrei Marincas on 3/1/16.
 //  Copyright © 2016 Andrei Marincas. All rights reserved.

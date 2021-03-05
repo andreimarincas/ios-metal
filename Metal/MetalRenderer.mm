@@ -1,6 +1,6 @@
 //
 //  MetalRenderer.mm
-//  Metal01
+//  Metal
 //
 //  Created by Andrei Marincas on 3/1/16.
 //  Copyright © 2016 Andrei Marincas. All rights reserved.
@@ -10,20 +10,15 @@
 #import "Transforms.h"
 #import "SharedTypes.h"
 
-using namespace MTL;
 using namespace simd;
+using namespace MTL;
 
-struct Vertex
+// position, color
+static const float vertex_data[] =
 {
-    simd::float3 position;
-    simd::float4 color;
-};
-
-static const Vertex vertex_data[] =
-{
-    { {  0.0f,  0.5f, 0.0f }, { 1.0f, 0.0f, 0.0f, 1.0f } },
-    { { -0.5f, -0.5f, 0.0f }, { 0.0f, 1.0f, 0.0f, 1.0f } },
-    { {  0.5f, -0.5f, 0.0f }, { 0.0f, 0.0f, 1.0f, 1.0f } }
+     0.0f,  1.0f, 0.0f,    1.0f, 0.0f, 0.0f, 1.0f,
+    -1.0f, -1.0f, 0.0f,    0.0f, 1.0f, 0.0f, 1.0f,
+     1.0f, -1.0f, 0.0f,    0.0f, 0.0f, 1.0f, 1.0f
 };
 
 @interface MetalRenderer ()
@@ -128,15 +123,31 @@ static const Vertex vertex_data[] =
     _transformBuffer = [_device newBufferWithLength:sizeof(TransformData) options:0];
     
     TransformData *data = (TransformData *)[_transformBuffer contents];
-    float4x4 t = scale(1.0, 0.5, 1.0);
+    float4x4 t = identity();
     data->transform = t;
 }
 
 #pragma mark - MetalViewDelegate (Render)
 
+// When this is called, update the view and projection matrices since this means the view orientation or size has changed.
 - (void)metalView:(MetalView *)view drawableSizeWillChange:(CGSize)size
 {
-    // When this is called, update the view and projection matrices since this means the view orientation or size has changed.
+    float aspect = fabs(view.bounds.size.width / view.bounds.size.height);
+    
+    TransformData *data = (TransformData *)[_transformBuffer contents];
+    float3 scale_vector = { 1.0f, 1.0f, 1.0f };
+    
+    if (aspect < 1.0)
+    {
+        scale_vector = { 1.0f, 1.0f - aspect, 1.0f };
+    }
+    else
+    {
+        scale_vector = { aspect - 1.0f, 1.0f, 1.0f };
+    }
+    
+    float4x4 t = scale(scale_vector / 2.0f);
+    data->transform = t;
 }
 
 - (void)drawInMetalView:(MetalView *)view

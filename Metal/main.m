@@ -1,8 +1,8 @@
 //
 //  main.m
-//  Metal01
+//  Metal
 //
-//  Created by Andrei Marincas on 3/1/16.
+//  Created by Andrei Marincas on 3/17/16.
 //  Copyright © 2016 Andrei Marincas. All rights reserved.
 //
 

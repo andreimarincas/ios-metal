@@ -1,6 +1,6 @@
 //
 //  MetalViewController.m
-//  Metal01
+//  Metal
 //
 //  Created by Andrei Marincas on 3/1/16.
 //  Copyright © 2016 Andrei Marincas. All rights reserved.
@@ -95,7 +95,7 @@
     [super viewDidLoad];
     
     _metalView = (MetalView *)self.view;
-//    _metalView.clearColor = MTLClearColorMake(1.0, 0.0, 0.0, 1.0);
+    _metalView.clearColor = MTLClearColorMake(0.0, 0.0, 0.0, 1.0);
     
     // Load all renderer assets before starting the render loop
     [_renderer configure:_metalView];

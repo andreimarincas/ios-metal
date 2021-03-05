@@ -6,9 +6,6 @@
 //  Copyright © 2016 Andrei Marincas. All rights reserved.
 //
 
-//#import <cmath>
-//#import <iostream>
-
 #import "Transforms.h"
 
 simd::float4x4 MTL::identity()
