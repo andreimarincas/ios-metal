@@ -18,11 +18,6 @@ float MTL::radians(const float& degrees)
     return kRadians * degrees;
 }
 
-simd::float4x4 MTL::identity4x4()
-{
-    return matrix_identity_float4x4;
-}
-
 simd::float4x4 MTL::scale(const float& sx,
                           const float& sy,
                           const float& sz)

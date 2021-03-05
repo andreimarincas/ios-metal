@@ -7,8 +7,9 @@
 //
 
 #import <UIKit/UIKit.h>
+#import "MetalView.h"
 
-@interface MetalViewController : UIViewController
+@interface MetalViewController : UIViewController <MetalViewDelegate>
 
 // The time interval (in seconds) since the last draw
 @property (nonatomic, readonly) NSTimeInterval timeSinceLastDraw;

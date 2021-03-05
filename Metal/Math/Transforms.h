@@ -20,9 +20,9 @@ extern const float kRadians;
 
 namespace MTL
 {
-    float radians(const float& degrees);
+    static const simd::float4x4 identity4x4 = matrix_identity_float4x4;
     
-    simd::float4x4 identity4x4();
+    float radians(const float& degrees);
     
     simd::float4x4 scale(const float& sx,
                          const float& sy,

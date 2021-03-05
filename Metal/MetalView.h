@@ -17,16 +17,19 @@
 @property (nonatomic, weak) id <MetalViewDelegate> delegate;
 
 // The MTLDevice used to create Metal objects
-@property (nonatomic, readonly) id <MTLDevice> device;
+@property (nonatomic, strong) id <MTLDevice> device;
 
 // The drawable to be used for the current frame
 @property (nonatomic, readonly) id <CAMetalDrawable> currentDrawable;
 
 // Render pass descriptor from current drawable's texture
-@property (nonatomic, readonly) MTLRenderPassDescriptor *currentRenderPassDescriptor;
+@property (nonatomic, readonly) MTLRenderPassDescriptor *renderPassDescriptor;
 
 // The clear color value used to generate the currentRenderPassDescriptor. Default is (0.0, 0.0, 0.0, 1.0) - black opaque.
 @property (nonatomic) MTLClearColor clearColor;
+
+// The pixelFormat for the drawable's texture
+@property (nonatomic) MTLPixelFormat colorPixelFormat;
 
 // Manually ask the view to draw new contents. This causes the view to call either the drawInMTKView (delegate) or drawRect (subclass) method.
 // Call this on main thread

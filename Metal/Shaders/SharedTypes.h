@@ -15,10 +15,27 @@
 
 namespace MTL
 {
-    struct Uniforms
-    {
-        simd::float4x4 modelview_projection_matrix;
+    // Indices of vertex attribute in descriptor.
+    enum VertexAttributes {
+        VertexAttributePosition = 0,
+        VertexAttributeColor    = 1
     };
+    
+    // Indices for buffer bind points
+    enum BufferIndex {
+        VertexBufferIndex  = 0,
+        UniformBufferIndex = 1
+    };
+    
+    struct Uniforms {
+        // Frame uniforms
+        simd::float4x4 modelview_projection_matrix;
+        //simd::float4x4 normal_matrix;
+        
+        // Material uniforms
+        
+        
+    } __attribute__ ((aligned (256)));
 }
 
 #endif

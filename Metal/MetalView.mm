@@ -1,5 +1,5 @@
 //
-//  MetalView.m
+//  MetalView.mm
 //  Metal
 //
 //  Created by Andrei Marincas on 3/1/16.
@@ -8,20 +8,17 @@
 
 #import "MetalView.h"
 
-@interface MetalView ()
+@implementation MetalView
 {
+     // Using ivars instead of properties to avoid any performance penalities with the Objective-C runtime.
+    
     __weak CAMetalLayer *_metalLayer;
     
     BOOL _layerSizeDidUpdate;
 }
 
-@end
-
-@implementation MetalView
-
-@synthesize device = _device;
 @synthesize currentDrawable = _currentDrawable;
-@synthesize currentRenderPassDescriptor = _renderPassDescriptor;
+@synthesize renderPassDescriptor = _renderPassDescriptor;
 
 + (Class)layerClass
 {
@@ -105,16 +102,16 @@
     _layerSizeDidUpdate = YES;
 }
 
-#pragma mark
+#pragma mark -
 
-- (void)setDevice:(id <MTLDevice>)device
+- (void)setDevice:(id<MTLDevice>)device
 {
-    [_metalLayer setDevice:device];
-}
-
-- (id <MTLDevice>)device
-{
-    return [_metalLayer device];
+    if (_device != device)
+    {
+        _device = device;
+        [_metalLayer setDevice:device];
+        _currentDrawable = nil;
+    }
 }
 
 - (id <CAMetalDrawable>)currentDrawable
@@ -127,7 +124,7 @@
     return _currentDrawable;
 }
 
-- (MTLRenderPassDescriptor *)currentRenderPassDescriptor
+- (MTLRenderPassDescriptor *)renderPassDescriptor
 {
     id <CAMetalDrawable> drawable = self.currentDrawable;
     
@@ -162,6 +159,16 @@
     
     // Store only attachments that will be presented to the screen, as in this case
     colorAttachment.storeAction = MTLStoreActionStore;
+}
+
+- (void)setColorPixelFormat:(MTLPixelFormat)colorPixelFormat
+{
+    _metalLayer.pixelFormat = colorPixelFormat;
+}
+
+- (MTLPixelFormat)colorPixelFormat
+{
+    return _metalLayer.pixelFormat;
 }
 
 - (void)display

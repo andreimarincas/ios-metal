@@ -29,12 +29,10 @@ namespace MTL
         Quaternion(const Quaternion& q);
         Quaternion& operator=(const Quaternion& q);
         ~Quaternion();
-        
-        inline void operator*=(const Quaternion& q);
     };
     typedef Quaternion quat;
     
-    static const quat quat_identity = { 0.0f, 0.0f, 0.0f, 1.0f }; // Unit quaternion 1 + 0i + 0j + 0k with real part 1 and imaginary part 0.
+    static const quat quat_unit = { 0.0f, 0.0f, 0.0f, 1.0f }; // Unit quaternion 1 + 0i + 0j + 0k with real part 1 and imaginary part 0.
     
     // Norm
     float norm(const quat& q);
@@ -45,7 +43,6 @@ namespace MTL
     // Product
     quat product(const quat& p, const quat& q); // Returns the Hamilton product p * q.
     
-    inline void Quaternion::operator*=(const Quaternion& q) { *this = product(*this, q); }
     inline quat operator*(const quat& p, const quat& q) { return product(p, q); };
     
     // Multiplication by a scalar

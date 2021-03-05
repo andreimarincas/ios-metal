@@ -13,36 +13,33 @@
 using namespace metal;
 using namespace MTL;
 
-struct VertexInput
-{
-    packed_float3 position;
-    packed_float4 color;
+struct VertexInput {
+    float3 position [[ attribute(VertexAttributePosition) ]];
+    float4 color    [[ attribute(VertexAttributeColor) ]];
 };
 
-struct VertexOutput
-{
+struct VertexOutput {
     float4 position [[ position ]];
     half4 color;
 };
 
-vertex VertexOutput vertex_program(device VertexInput *vertex_array [[ buffer(0) ]],
-                                   constant Uniforms& uniforms [[ buffer(1) ]],
-                                   unsigned int vid [[ vertex_id ]])
+vertex VertexOutput vertex_program(VertexInput v_in [[ stage_in ]],
+                                   constant Uniforms& uniforms [[ buffer(UniformBufferIndex) ]])
 {
     VertexOutput v_out;
     
-    float4 in_position = float4(float3(vertex_array[vid].position), 1.0f);
+    float4 in_position = float4(float3(v_in.position), 1.0f);
     float4x4 mv_proj_Matrix = uniforms.modelview_projection_matrix;
     
     v_out.position = mv_proj_Matrix * in_position;
     
-    float4 in_color = float4(vertex_array[vid].color);
+    float4 in_color = float4(v_in.color);
     v_out.color = half4(in_color);
     
     return v_out;
 }
 
-fragment half4 fragment_program(VertexOutput v_in [[ stage_in ]])
+fragment half4 fragment_program(VertexOutput v_out [[ stage_in ]])
 {
-    return v_in.color;
+    return v_out.color;
 }
