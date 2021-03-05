@@ -32,7 +32,7 @@ vertex VertexOutput vertex_program(device VertexInput *vertex_array [[ buffer(0)
     VertexOutput v_out;
     
     float4 in_position = float4(float3(vertex_array[vid].position), 1.0f);
-    float4x4 mv_Matrix = uniforms.modelMatrix;
+    float4x4 mv_Matrix = uniforms.modelViewMatrix;
     float4x4 proj_Matrix = uniforms.projectionMatrix;
     
     v_out.position = proj_Matrix * mv_Matrix * in_position;

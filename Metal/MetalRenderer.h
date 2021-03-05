@@ -11,6 +11,8 @@
 #import "MetalView.h"
 #import "MetalViewController.h"
 
+static const long kInFlightCommandBuffers = 3;
+
 @interface MetalRenderer : NSObject <MetalViewDelegate, MetalViewControllerDelegate>
 
 - (void)configure:(MetalView *)view;

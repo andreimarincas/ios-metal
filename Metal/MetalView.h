@@ -25,7 +25,7 @@
 // Render pass descriptor from current drawable's texture
 @property (nonatomic, readonly) MTLRenderPassDescriptor *currentRenderPassDescriptor;
 
-// The clear color value used to generate the currentRenderPassDescriptor. Default is (0.0, 0.0, 0.0, 1.0).
+// The clear color value used to generate the currentRenderPassDescriptor. Default is (0.0, 0.0, 0.0, 1.0) - black opaque.
 @property (nonatomic) MTLClearColor clearColor;
 
 // Manually ask the view to draw new contents. This causes the view to call either the drawInMTKView (delegate) or drawRect (subclass) method.

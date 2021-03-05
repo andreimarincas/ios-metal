@@ -8,16 +8,17 @@
 
 #import "Transforms.h"
 
-static const float kPi_f      = float(M_PI);
-static const float k1Div180_f = 1.0f / 180.0f;
-static const float kRadians   = k1Div180_f * kPi_f;
+const float kPi_f      = float(M_PI);
+const float k1Div180_f = 1.0f / 180.0f;
+const float k1Div360_f = 1.0f / 360.0f;
+const float kRadians   = k1Div180_f * kPi_f;
 
 float MTL::radians(const float& degrees)
 {
     return kRadians * degrees;
 }
 
-simd::float4x4 MTL::identity()
+simd::float4x4 MTL::identity4x4()
 {
     return matrix_identity_float4x4;
 }

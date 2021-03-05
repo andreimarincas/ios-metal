@@ -7,57 +7,22 @@
 //
 
 #import "MetalRenderer.h"
+#import "Node.h"
+#import "Cube.h"
 #import "Transforms.h"
 #import "SharedTypes.h"
 
 using namespace simd;
 using namespace MTL;
 
-static const float kFOVY   = 65.0f;
-static const float kNear   = 0.1f;
-static const float kFar    = 100.0f;
-
-static const float kWidth  = 0.5f;
-static const float kHeight = 0.5f;
-static const float kDepth  = 0.5f;
-
-struct Vertex
-{
-    float x, y, z;
-    float r, g, b, a;
-};
-
-static const Vertex A = { -kWidth,  kHeight,  kDepth, 1.0, 0.0, 0.0, 1.0 };
-static const Vertex B = { -kWidth, -kHeight,  kDepth, 0.0, 1.0, 0.0, 1.0 };
-static const Vertex C = {  kWidth, -kHeight,  kDepth, 0.0, 0.0, 1.0, 1.0 };
-static const Vertex D = {  kWidth,  kHeight,  kDepth, 0.1, 0.6, 0.4, 1.0 };
-
-static const Vertex E = { -kWidth,  kHeight, -kDepth, 1.0, 0.0, 0.0, 1.0 };
-static const Vertex F = {  kWidth,  kHeight, -kDepth, 0.0, 1.0, 0.0, 1.0 };
-static const Vertex G = { -kWidth, -kHeight, -kDepth, 0.0, 0.0, 1.0, 1.0 };
-static const Vertex H = {  kWidth, -kHeight, -kDepth, 0.1, 0.6, 0.4, 1.0 };
-
-static const Vertex kCubeVertexData[] =
-{
-    A,B,C, A,C,D,   // Front
-    F,H,G, E,F,G,   // Back
-    
-    E,G,B, E,B,A,   // Left
-    D,C,H, D,H,F,   // Right
-    
-    E,A,D, E,D,F,   // Top
-    B,G,H, B,H,C    // Bottom
-};
-
-static const long kInFlightCommandBuffers = 3;
+static const float kFOVY = 65.0f;
+static const float kNear = 0.1f;
+static const float kFar  = 100.0f;
 
 @interface MetalRenderer ()
 {
     // The MTLDevice provides a direct way to communicate with the GPU driver and hardware
     id <MTLDevice>              _device;
-    
-    // The MTLBuffer is a typeless allocation accessible by both the CPU and the GPU (MTLDevice)
-    id <MTLBuffer>              _vertexBuffer;
     
     // Through MTLLibrary you can access any of the precompiled shaders included in your project
     id <MTLLibrary>             _library;
@@ -70,14 +35,17 @@ static const long kInFlightCommandBuffers = 3;
     
     // Globals used in update calculation
     float4x4                    _projectionMatrix;
+    float4x4                    _viewMatrix;
     float                       _rotation;
     
     dispatch_semaphore_t        _inflight_semaphore;
-    id <MTLBuffer>              _dynamicUniformsBuffer[kInFlightCommandBuffers];
     
-    // This value will cycle from 0 to kInFlightCommandBuffers-1 whenever a display completes ensuring renderer clients
+    // This value will cycle from 0 to kInFlightCommandBuffers whenever a display completes ensuring renderer clients
     // can synchronize between kInFlightCommandBuffers count buffers, and thus avoiding a constant buffer from being overwritten between draws.
-    NSUInteger                  _uniformsBufferIndex;
+    NSUInteger                  _uniformBufferIndex;
+    
+    Cube                        *_cube1;
+    Cube                        *_cube2;
 }
 
 @end
@@ -90,7 +58,8 @@ static const long kInFlightCommandBuffers = 3;
     
     if (self)
     {
-        _projectionMatrix = identity();
+        _projectionMatrix = identity4x4();
+        _viewMatrix = identity4x4();
         _inflight_semaphore = dispatch_semaphore_create(kInFlightCommandBuffers);
     }
     
@@ -119,11 +88,17 @@ static const long kInFlightCommandBuffers = 3;
     // Prepare pipeline
     [self preparePipelineState];
     
-    // Allocate buffers before rendering
-    [self createBuffers];
-    
     // Set ourself as delegate to handle rendering in metal view
     view.delegate = self;
+    
+    //
+    _cube1 = [[Cube alloc] initWithName:@"Cube1" device:_device];
+    _cube1.position.xyz = float3(1.0f);
+    
+    _cube2 = [[Cube alloc] initWithName:@"Cube2" device:_device];
+    _cube2.position.xyz = float3(-1.0f);
+    _cube2.hidden = YES;
+    //
 }
 
 - (void)preparePipelineState
@@ -167,33 +142,16 @@ static const long kInFlightCommandBuffers = 3;
     }
 }
 
-- (void)createBuffers
+- (void)updateUniformBuffers
 {
-    _vertexBuffer = [_device newBufferWithBytes: kCubeVertexData
-                                         length: sizeof(kCubeVertexData)
-                                        options: MTLResourceOptionCPUCacheModeDefault];
-    
-    // Allocate a number of buffers in memory that matches the sempahore count so that
-    // we always have one self contained memory buffer for each buffered frame.
-    // In this case triple buffering is the optimal way to go so we cycle through 3 memory buffers.
-    for (int i = 0; i < kInFlightCommandBuffers; i++)
-    {
-        _dynamicUniformsBuffer[i] = [_device newBufferWithLength:sizeof(Uniforms) options:0];
-        
-        // Write initial uniforms values
-        Uniforms& uniformsData = *(Uniforms *)[_dynamicUniformsBuffer[i] contents];
-        uniformsData.modelMatrix = identity();
-        uniformsData.projectionMatrix = identity();
-    }
+    [_cube1 updateUniformBuffer:_uniformBufferIndex viewMatrix:_viewMatrix projectionMatrix:_projectionMatrix];
+    [_cube2 updateUniformBuffer:_uniformBufferIndex viewMatrix:_viewMatrix projectionMatrix:_projectionMatrix];
 }
 
-- (void)updateUniformsBuffer
+- (void)render:(id <MTLRenderCommandEncoder>)encoder
 {
-    float4x4 baseModelMatrix = translation(0, 0, 3) * rotation(_rotation, 1, 1, 1);
-    
-    Uniforms& uniformsData = *(Uniforms *)[_dynamicUniformsBuffer[_uniformsBufferIndex] contents];
-    uniformsData.modelMatrix = baseModelMatrix;
-    uniformsData.projectionMatrix = _projectionMatrix;
+    [_cube1 render:encoder];
+    [_cube2 render:encoder];
 }
 
 #pragma mark - MetalViewDelegate (Render)
@@ -204,6 +162,7 @@ static const long kInFlightCommandBuffers = 3;
     
     float aspect = fabs(view.bounds.size.width / view.bounds.size.height);
     _projectionMatrix = perspective_fov(kFOVY, aspect, kNear, kFar);
+    _viewMatrix = translation(0, 0, 5);
 }
 
 - (void)drawInMetalView:(MetalView *)view
@@ -213,7 +172,7 @@ static const long kInFlightCommandBuffers = 3;
     dispatch_semaphore_wait(_inflight_semaphore, DISPATCH_TIME_FOREVER);
     
     // Prior to sending any data to the GPU, constant buffers should be updated accordingly on the CPU.
-    [self updateUniformsBuffer];
+    [self updateUniformBuffers];
     
     // Create a new command buffer for each renderpass to the current drawable.
     // This ia a serial list of commands for the device to execute.
@@ -228,25 +187,16 @@ static const long kInFlightCommandBuffers = 3;
         
         // Create first a render command encoder so we can render into something.
         // The render command encoder is a container for graphics rendering state and the code to translate the state into a command format that the device can execute.
-        id <MTLRenderCommandEncoder> renderEncoder = [commandBuffer renderCommandEncoderWithDescriptor:renderPassDescriptor]; // Returns a render command endcoder to encode into this command buffer
-        
-        // Use backface culling to fix trasparency
-        [renderEncoder setCullMode:MTLCullModeFront];
-        [renderEncoder setFrontFacingWinding:MTLWindingCounterClockwise];
+        id <MTLRenderCommandEncoder> encoder = [commandBuffer renderCommandEncoderWithDescriptor:renderPassDescriptor]; // Returns a render command endcoder to encode into this command buffer
         
         // Set the pipeline state
-        [renderEncoder setRenderPipelineState:_pipelineState];
+        [encoder setRenderPipelineState:_pipelineState];
         
-        // Set buffers
-        [renderEncoder setVertexBuffer:_vertexBuffer offset:0 atIndex:0];
-        [renderEncoder setVertexBuffer:_dynamicUniformsBuffer[_uniformsBufferIndex] offset:0 atIndex:1];
-        
-        // Tell the GPU to draw a set of triangles based on the vertex buffer.
-        // Each triangle consists of 3 vertices, starting at index 0 inside the vertex buffer.
-        [renderEncoder drawPrimitives:MTLPrimitiveTypeTriangle vertexStart:0 vertexCount:36];
+        // Render nodes
+        [self render:encoder];
         
         // Declare that all command generation from this encoder is complete, and detach from the MTLCommandBuffer.
-        [renderEncoder endEncoding];
+        [encoder endEncoding];
         
         // Tell CoreAnimation when to present this drawable.
         // The new texture is presented as soon as the drawing completes.
@@ -270,7 +220,7 @@ static const long kInFlightCommandBuffers = 3;
     // Once the CPU has completed updating a shared CPU/GPU memory buffer region for a frame, this index should be updated so the
     // next portion of the ring buffer can be written by the CPU. Note, this should only be done *after* all writes to any
     // buffers requiring synchronization for a given frame is done in order to avoid writing a region of the ring buffer that the GPU may be reading.
-    _uniformsBufferIndex = (_uniformsBufferIndex + 1) % kInFlightCommandBuffers;
+    _uniformBufferIndex = (_uniformBufferIndex + 1) % kInFlightCommandBuffers;
 }
 
 #pragma mark - MetalViewControllerDelegate (Update)
@@ -279,7 +229,19 @@ static const long kInFlightCommandBuffers = 3;
 {
     // Use this to update app globals
     
-    _rotation += controller.timeSinceLastDraw * 30.0f;
+    NSTimeInterval t = controller.timeSinceLastDraw;
+    
+    static const float speedX = 360.0f / 12.0f; // degrees/second
+    static const float speedY = 360.0f / 8.0f;
+    static const float speedZ = 360.0f / 6.0f;
+    
+    [_cube1 rotateBy:t * speedZ aroundAxis:zAxis];
+    [_cube1 rotateBy:t * speedY aroundAxis:yAxis];
+    [_cube1 rotateBy:t * speedX aroundAxis:xAxis];
+    
+    [_cube2 rotateBy:-t * speedZ aroundAxis:zAxis];
+    [_cube2 rotateBy:-t * speedY aroundAxis:yAxis];
+    [_cube2 rotateBy:-t * speedX aroundAxis:xAxis];
 }
 
 - (void)viewController:(MetalViewController *)controller willPause:(BOOL)pause

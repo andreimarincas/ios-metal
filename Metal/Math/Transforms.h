@@ -13,11 +13,16 @@
 
 #ifdef __cplusplus
 
+extern const float kPi_f;
+extern const float k1Div180_f;
+extern const float k1Div360_f;
+extern const float kRadians;
+
 namespace MTL
 {
     float radians(const float& degrees);
     
-    simd::float4x4 identity();
+    simd::float4x4 identity4x4();
     
     simd::float4x4 scale(const float& sx,
                          const float& sy,
