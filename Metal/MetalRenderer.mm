@@ -20,9 +20,9 @@ static const float kTwoThirds_f = 2.0f * kOneThird_f;
 // position, color
 static const float vertex_data[] =
 {
-     0.0f,  kTwoThirds_f, 1.0f,    1.0f, 0.0f, 0.0f, 1.0f,
-    -0.5f, -kOneThird_f,  1.0f,    0.0f, 1.0f, 0.0f, 1.0f,
-     0.5f, -kOneThird_f,  1.0f,    0.0f, 0.0f, 1.0f, 1.0f
+     0.0f,  kTwoThirds_f, 0.0f,    1.0f, 0.0f, 0.0f, 1.0f,
+    -0.5f, -kOneThird_f,  0.0f,    0.0f, 1.0f, 0.0f, 1.0f,
+     0.5f, -kOneThird_f,  0.0f,    0.0f, 0.0f, 1.0f, 1.0f
 };
 
 @interface MetalRenderer ()
@@ -44,6 +44,7 @@ static const float vertex_data[] =
     id <MTLCommandQueue>        _commandQueue;
     
     // Globals used in update calculation
+    float4x4                    _modelViewMatrix;
     float4x4                    _projectionMatrix;
     float                       _rotation;
 }
@@ -58,6 +59,7 @@ static const float vertex_data[] =
     
     if (self)
     {
+        _modelViewMatrix = identity();
         _projectionMatrix = identity();
     }
     
@@ -151,7 +153,9 @@ static const float vertex_data[] =
 - (void)updateTransformBuffer
 {
     TransformData *data = (TransformData *)[_transformBuffer contents];
-    data->transform = _projectionMatrix * rotation(_rotation, 0.0f, 0.0f, 1.0f);
+    float4x4 baseModelMatrix = rotation(_rotation, 0.0f, 0.0f, 1.0f);
+    float4x4 t = _projectionMatrix * _modelViewMatrix * baseModelMatrix;
+    data->transform = t;
 }
 
 #pragma mark - MetalViewDelegate (Render)
@@ -160,16 +164,18 @@ static const float vertex_data[] =
 {
     // When this is called, update the view and projection matrices since this means the view orientation or size has changed.
     
-    float aspect = fabs(view.bounds.size.width / view.bounds.size.height);
+    float w = view.bounds.size.width;
+    float h = view.bounds.size.height;
+    float scale_xy  = fminf(w, h) / 2.0f;
     
-    if (aspect > 1.0)
-    {
-        _projectionMatrix = scale(1.0f / aspect, 1.0f, 1.0f);
-    }
-    else
-    {
-        _projectionMatrix = scale(1.0f, aspect, 1.0f);
-    }
+//    _modelViewMatrix = scale(scale_xy, scale_xy, 1.0f);
+//    _projectionMatrix = ortho2d_oc(-w / 2.0f, w / 2.0f, -h / 2.0f, h / 2.0f, 0.0f, 1.0f);
+    
+//    _modelViewMatrix = translation(w / 2.0f, h / 2.0f, 0.0f) * scale(scale_xy, scale_xy, 1.0f);
+//    _projectionMatrix = ortho2d_oc(0.0f, w, 0.0f, h, 0.0f, 1.0f);
+    
+    _modelViewMatrix = scale(scale_xy, scale_xy, 1.0f);
+    _projectionMatrix = ortho2d(0.0f, w, 0.0f, h, 0.0f, 1.0f);
 }
 
 - (void)drawInMetalView:(MetalView *)view

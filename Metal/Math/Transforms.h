@@ -23,6 +23,12 @@ namespace MTL
     
     simd::float4x4 scale(const simd::float3& s);
     
+    simd::float4x4 translation(const float& x,
+                               const float& y,
+                               const float& z);
+    
+    simd::float4x4 translation(const simd::float3& t);
+    
     simd::float4x4 rotation(const float& angle,
                             const float& x,
                             const float& y,
@@ -40,6 +46,16 @@ namespace MTL
     
     simd::float4x4 ortho2d(const simd::float3& origin,
                            const simd::float3& size);
+    
+    simd::float4x4 ortho2d_oc(const float& left,
+                              const float& right,
+                              const float& bottom,
+                              const float& top,
+                              const float& near,
+                              const float& far);
+    
+    simd::float4x4 ortho2d_oc(const simd::float3& origin,
+                              const simd::float3& size);
 }
 
 #endif
