@@ -1,6 +1,6 @@
 //
 //  Shaders.metal
-//  MetalDemo
+//  Metal
 //
 //  Created by Andrei Marincas on 2/24/16.
 //  Copyright © 2016 Andrei Marincas. All rights reserved.

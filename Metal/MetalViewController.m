@@ -12,12 +12,19 @@
 
 @interface MetalViewController ()
 {
-    __weak MetalView *_metalView;
+    __weak MetalView    *_metalView;
     
-    CADisplayLink *_displayLink;
-    BOOL _renderLoopPaused;
+    CADisplayLink       *_displayLink;
     
-    MetalRenderer *_renderer;
+    // Boolean to determine if the first draw has occured
+    BOOL                _firstDrawOccurred;
+    
+    // Time when last drawing occurred. Helps to keep track of the time interval between draws.
+    CFTimeInterval      _renderTime;
+    
+    BOOL                _renderLoopPaused;
+    
+    MetalRenderer       *_renderer;
 }
 
 @end
@@ -143,6 +150,22 @@
 - (void)renderLoop
 {
     // Display (render)
+    
+    if (!_firstDrawOccurred)
+    {
+        _timeSinceLastDraw = 0.0;
+        _renderTime = CACurrentMediaTime();
+        _firstDrawOccurred = YES;
+    }
+    else
+    {
+        CFTimeInterval currentTime = CACurrentMediaTime();
+        _timeSinceLastDraw = currentTime - _renderTime;
+        _renderTime = currentTime;
+    }
+    
+    // Update renderer state before drawing
+    [_renderer update:self];
     
     // Call the display method directly on the render view
     [_metalView display];

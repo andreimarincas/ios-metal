@@ -1,6 +1,6 @@
 //
 //  MetalViewController.h
-//  Metal01
+//  Metal
 //
 //  Created by Andrei Marincas on 3/1/16.
 //  Copyright © 2016 Andrei Marincas. All rights reserved.
@@ -9,6 +9,9 @@
 #import <UIKit/UIKit.h>
 
 @interface MetalViewController : UIViewController
+
+// The time interval (in seconds) since the last draw
+@property (nonatomic, readonly) NSTimeInterval timeSinceLastDraw;
 
 // Pause/resume the render loop
 @property (nonatomic, getter=isPaused) BOOL paused;

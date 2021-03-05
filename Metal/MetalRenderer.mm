@@ -13,36 +13,56 @@
 using namespace simd;
 using namespace MTL;
 
+static const float kEquiH_f     = sqrtf(3.0f) / 2.0f; // height of an equilateral triangle with side = 1 (aprox. 0.866)
+static const float kOneThird_f  = kEquiH_f / 3.0f;
+static const float kTwoThirds_f = 2.0f * kOneThird_f;
+
 // position, color
 static const float vertex_data[] =
 {
-     0.0f,  1.0f, 0.0f,    1.0f, 0.0f, 0.0f, 1.0f,
-    -1.0f, -1.0f, 0.0f,    0.0f, 1.0f, 0.0f, 1.0f,
-     1.0f, -1.0f, 0.0f,    0.0f, 0.0f, 1.0f, 1.0f
+     0.0f,  kTwoThirds_f, 1.0f,    1.0f, 0.0f, 0.0f, 1.0f,
+    -0.5f, -kOneThird_f,  1.0f,    0.0f, 1.0f, 0.0f, 1.0f,
+     0.5f, -kOneThird_f,  1.0f,    0.0f, 0.0f, 1.0f, 1.0f
 };
 
 @interface MetalRenderer ()
 {
     // The MTLDevice provides a direct way to communicate with the GPU driver and hardware
-    id <MTLDevice> _device;
+    id <MTLDevice>              _device;
     
     // The MTLBuffer is a typeless allocation accessible by both the CPU and the GPU (MTLDevice)
-    id <MTLBuffer> _vertexBuffer;
-    id <MTLBuffer> _transformBuffer;
+    id <MTLBuffer>              _vertexBuffer;
+    id <MTLBuffer>              _transformBuffer;
     
     // Through MTLLibrary you can access any of the precompiled shaders included in your project
-    id <MTLLibrary> _library;
+    id <MTLLibrary>             _library;
     
     // MTLRenderPipelineState represents a compiled render pipeline that can be set on a MTLRenderCommandEncoder
     id <MTLRenderPipelineState> _pipelineState;
     
     // The MTLCommandQueue provides a way to submit commands or instructions to the GPU. Think of this as an ordered list of commands that you tell the GPU to execute, one at a time.
-    id <MTLCommandQueue> _commandQueue;
+    id <MTLCommandQueue>        _commandQueue;
+    
+    // Globals used in update calculation
+    float4x4                    _projectionMatrix;
+    float                       _rotation;
 }
 
 @end
 
 @implementation MetalRenderer
+
+- (instancetype)init
+{
+    self = [super init];
+    
+    if (self)
+    {
+        _projectionMatrix = identity();
+    }
+    
+    return self;
+}
 
 - (void)configure:(MetalView *)view
 {
@@ -122,36 +142,41 @@ static const float vertex_data[] =
     
     _transformBuffer = [_device newBufferWithLength:sizeof(TransformData) options:0];
     
+    // Write initial data to transform buffer
     TransformData *data = (TransformData *)[_transformBuffer contents];
     float4x4 t = identity();
     data->transform = t;
 }
 
+- (void)updateTransformBuffer
+{
+    TransformData *data = (TransformData *)[_transformBuffer contents];
+    data->transform = _projectionMatrix * rotation(_rotation, 0.0f, 0.0f, 1.0f);
+}
+
 #pragma mark - MetalViewDelegate (Render)
 
-// When this is called, update the view and projection matrices since this means the view orientation or size has changed.
 - (void)metalView:(MetalView *)view drawableSizeWillChange:(CGSize)size
 {
+    // When this is called, update the view and projection matrices since this means the view orientation or size has changed.
+    
     float aspect = fabs(view.bounds.size.width / view.bounds.size.height);
     
-    TransformData *data = (TransformData *)[_transformBuffer contents];
-    float3 scale_vector = { 1.0f, 1.0f, 1.0f };
-    
-    if (aspect < 1.0)
+    if (aspect > 1.0)
     {
-        scale_vector = { 1.0f, 1.0f - aspect, 1.0f };
+        _projectionMatrix = scale(1.0f / aspect, 1.0f, 1.0f);
     }
     else
     {
-        scale_vector = { aspect - 1.0f, 1.0f, 1.0f };
+        _projectionMatrix = scale(1.0f, aspect, 1.0f);
     }
-    
-    float4x4 t = scale(scale_vector / 2.0f);
-    data->transform = t;
 }
 
 - (void)drawInMetalView:(MetalView *)view
 {
+    // Prior to sending any data to the GPU, constant buffers should be updated accordingly on the CPU.
+    [self updateTransformBuffer];
+    
     // Create a new command buffer for each renderpass to the current drawable.
     // This ia a serial list of commands for the device to execute.
     id <MTLCommandBuffer> commandBuffer = [_commandQueue commandBuffer];
@@ -194,7 +219,9 @@ static const float vertex_data[] =
 
 - (void)update:(MetalViewController *)controller
 {
-    // Just use this to update app globals
+    // Use this to update app globals
+    
+    _rotation += controller.timeSinceLastDraw * 30.0f;
 }
 
 - (void)viewController:(MetalViewController *)controller willPause:(BOOL)pause
